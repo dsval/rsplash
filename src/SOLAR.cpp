@@ -165,10 +165,17 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 8. Calculate transmittivity (tau), unitless
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // tau_o = (Global::c + sf*Global::d);
-    //tau = tau_o*(1.0 + (2.67e-5)*elv);
+    tau_o = (Global::c + Global::d)*(1.0 + (2.67e-5)*elv);
+    //
     double r_in = 86400 * sw_in;
-    tau = r_in/ra_d;
+    //error at high latitudes, ra_d=0 or sw_in = 0
+	if (isnan(sw_in)==1 || ra_d==0 || ra_d < r_in){
+		tau = tau_o;
+	}else{
+		tau = r_in/(ra_d);
+	}
+
+   
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Calculate daily PPFD (ppfd_d), mol/m^2
@@ -188,7 +195,7 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     //albedo, assuming max snow albedo as 0.85
     
 	double alb = Global::alb_sw *(1.0-sfc)+sfc*0.85;
-    if ((sw_in == 0.0) | (hs == 0.0)){
+    if ((sw_in == 0.0) || (hs == 0.0)){
 		rw = (1.0 - alb)*tau*dr*Global::Gsc;
 	} else {
 		rw = (1.0 - alb)*(r_in)/((86400.0/Global::PI)*(ru*Global::pir*hs + rv*dsin(hs)));

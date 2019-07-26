@@ -1,4 +1,4 @@
-# splash Main spatial
+# main splash point
 #
 # VERSION: 2.0
 # LAST UPDATED: 2012-02-19
@@ -155,15 +155,15 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	m<-1-(1/n)
 	
 	
-	results$SAT<-sat
-	results$FC<-fc
-	results$WP<-wp
+	results$SAT<-sat*(1-fgravel)
+	results$FC<-fc*(1-fgravel)
+	results$WP<-wp*(1-fgravel)
 	results$bd<-bd
-	results$AWC<-(fc-wp)*(1-fgravel)
+	results$AWC<-(fc-wp)
 	results$Ksat<-ksat
 	results$A<-coef_A
 	results$B<-coef_B
-	results$RES<-RES
+	results$RES<-RES*(1-fgravel)
 	results$bubbling_p<-bubbling_p
 	results$VG_alpha<-alpha
 	results$VG_n<-n
@@ -265,6 +265,7 @@ frain_func<-function(tc,Tt,Tr,y,ny=NULL){
 	Ttm<-Tt+(Tt*dsin((m_ind+2)/1.91))
 	Trm<-Tr*(0.55+dsin(m_ind+4))*0.6
 	
+	
 	frain<-ifelse(tc<=Ttm,5*((tc-Ttm)/(1.4*Trm))^3+6.76*((tc-Ttm)/(1.4*Trm))^2+3.19*((tc-Ttm)/(1.4*Trm))+0.5, 5*((tc-Ttm)/(1.4*Trm))^3-6.76*((tc-Ttm)/(1.4*Trm))^2+3.19*((tc-Ttm)/(1.4*Trm))+0.5)
 	frain[frain<0]<-0
 	frain[frain>1]<-1
@@ -285,7 +286,7 @@ snowfall_prob<-function(tc,lat,elev){
 	# Ref:      Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., 2018. Spatial variation of the 
 	# 		  rain-snow temperature threshold across the Northern Hemisphere. Nat. Commun. 9, 1–9. doi:10.1038/s41467-018-03629-7
 	# ************************************************************************
-	p_snow<-1/(1+exp(-0.5827+1.319*tc-elev*4.18E-4-lat*1.140E-2))
+	p_snow<-1/(1+exp(-0.5827+1.319*tc-elev*4.18E-4-abs(lat)*1.140E-2))
 	return(p_snow)
 }
 # ************************************************************************

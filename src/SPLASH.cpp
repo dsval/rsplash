@@ -177,8 +177,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = soil_info[1];
-    //double RES = soil_info[7];
+    //double RES = soil_info[1];
+    double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
     //Pixel Area
@@ -239,17 +239,18 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
 
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 1. Calculate evaporative supply rate (sw), mm/h Matselar
+    // 1. Calculate evaporative supply rate (sw), mm/h Original
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // // org splash
-    // double sw = Global::Cw*((wn-RES)/(Wmax-RES));
-    // //double sw = Global::Cw*((wn)/(SAT));
-    // if (sw < 0.0 || isnan(sw)==1) {
-    //      sw = 0.0;
-    //  } else if (sw > Global::Cw){
-    //      sw = Global::Cw;
-    //  }
+    double sw = Global::Cw*((wn-RES)/(Wmax-RES));
+    //double sw = Global::Cw*((wn)/(SAT));
+    if (sw < 0.0 || isnan(sw)==1) {
+         sw = 0.0;
+     } else if (sw > Global::Cw){
+         sw = Global::Cw;
+     }
+   
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //First 10 cm
@@ -285,15 +286,15 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Campbel approach
-    double awc = (wn-RES)/(Wmax-RES);
-    double sw = 1.0 - pow((1.0 + 1.3 * awc ),(-1.0/lambda));
+    // double awc = (wn-RES)/(Wmax-RES);
+    // double sw = 1.0 - pow((1.0 + 1.3 * awc ),(-1.0/lambda));
     
-    sw *= Global::Cw;
-    if (sw < 0.0 || isnan(sw)==1) {
-         sw = 0.0;
-     } else if (sw > Global::Cw){
-         sw = Global::Cw;
-     }
+    // sw *= Global::Cw;
+    // if (sw < 0.0 || isnan(sw)==1) {
+    //      sw = 0.0;
+    //  } else if (sw > Global::Cw){
+    //      sw = Global::Cw;
+    //  }
 
     //Bonan, 2014 gradient assuming 2mmol root conductance
     // double psi_m_mpa = psi_m * 0.00000980665;
@@ -340,7 +341,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 4.2 calculate infiltration assuming storm duration 6hrs
-    double infi = inf_GA(bub_press,surf_moist,Ksat,theta_s,lambda,inflow,6.0,slop);
+    double infi = inf_GA(bub_press,surf_moist,Ksat,theta_s,lambda,inflow,24.0,slop);
     // 4.2 calculate Dunne runoff
     double ro_d = max(inflow-infi,0.0);
     // 4.2 calculate recharge
@@ -602,10 +603,10 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
 
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 1. Calculate evaporative supply rate (sw), mm/h Matselar
+    // 1. Calculate evaporative supply rate (sw), mm/h Original
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // // org splash
+    // org splash
     double sw = Global::Cw*((wn-RES)/(Wmax-RES));
     //double sw = Global::Cw*((wn)/(SAT));
     if (sw < 0.0 || isnan(sw)==1) {
@@ -703,7 +704,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 4.2 calculate infiltration assuming storm duration 6hrs
-    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
+    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,24.0,slop);
     // 4.2 calculate Dunne runoff
     double ro_d = max(inflow-infi,0.0);
     // 4.2 calculate recharge
@@ -926,7 +927,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     }
     // Equilibrate
     int spin_count = 1;
-    while ((diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 200)){
+    while ((diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 10)){
         for (int i=0; i<n; i++){
             // Get preceeding soil moisture status:
             if (i == 0){
@@ -1106,6 +1107,7 @@ double SPLASH::inf_GA(double bub_press,double theta_i,double Ksat,double theta_s
 		}else{
             //time ponding
 			tp = delta_theta*delta_head*((1/(r-Ksat))+(log((Ksat/(Ksat-r))+1)/Ksat));
+            //tp = (Ksat*-1.0*delta_theta*delta_head)/(r*(r-Ksat));
 			if(isnan(tp)==1){
 				// massive storms, (Ksat/(Ksat-r))+1) result in negative
                 tp=0.01;
