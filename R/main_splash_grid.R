@@ -363,7 +363,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			end<-cumsum(nm)
 			start<-end-11
 			result<-list()
-			cl <- parallel::makeCluster(sim.control$ncores)
+			cl <- parallel::makeCluster(sim.control$ncores, ...)
 			doSNOW::registerDoSNOW(cl)
 			cat("reaching steady state")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
@@ -401,7 +401,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	if(length(y)>1){
 		
 		cat("building the grids")
-		gc()
+		
 		result.all<-list()
 		# memory leak???	
 		result.all$wn<-result[[1]]$wn
@@ -421,7 +421,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		
 		rm(result)
 	}
-	gc()
+	
 	
 	
 	if (sim.control$output.mode=="monthly"){
@@ -437,19 +437,28 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			x<-calc(x=x, fun=function(x)tapply(x,indmonth,FUN= mean),filename=paste0(format(Sys.time(), "%Y%m%d_%H%M%S_"), "monthagg.grd"))
 		}
 		month_sum<-function(x){
-		
+			
 			x<-calc(x=x, fun=function(x)tapply(x,indmonth,FUN= sum),filename=paste0(format(Sys.time(), "%Y%m%d_%H%M%S_"), "monthagg.grd"))
 		}
 		# serial slow for bigrasters
+		# start.time<-Sys.time()
 		# result.all[c(1,5)]<-lapply(result.all[c(1,5)], month_mean)
 		# result.all[c(2,3,4,6,7)]<-lapply(result.all[c(2,3,4,6,7)], month_sum)
-		
-		cl <- parallel::makeCluster(sim.control$ncores)
+		# end.time<-Sys.time()
+		# end.time-start.time
+		# start.time<-Sys.time()
+		cl <- parallel::makeCluster(sim.control$ncores, ...)
 		doSNOW::registerDoSNOW(cl)
 		snow::clusterEvalQ(cl, library("raster"))
 		snow::clusterExport(cl, list=c("result.all","month_sum","month_mean","indmonth"),envir=environment()) 
 		result.all[c(1,5)]<-snow::parLapply(cl,result.all[c(1,5)],month_mean)
+		# memory leak, close cluster and cleanmem
+		stopCluster(cl)
 		gc()
+		cl <- parallel::makeCluster(sim.control$ncores, ...)
+		doSNOW::registerDoSNOW(cl)
+		snow::clusterEvalQ(cl, library("raster"))
+		snow::clusterExport(cl, list=c("result.all","month_sum","month_mean","indmonth"),envir=environment()) 
 		result.all[c(2,3,4,6,7)]<-snow::parLapply(cl,result.all[c(2,3,4,6,7)],month_sum)
 		stopCluster(cl)
 		gc()
@@ -459,8 +468,9 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		}
 		
 		result.all<-lapply(result.all,settime)
+		# end.time<-Sys.time()
+		# end.time-start.time
 		
-		gc()
 		cat("writing to disk")
 		result.all$wn<-writeRaster(result.all$wn,paste0(outdir,"/",y[1],"_",y[length(y)],".","wn",".","nc"),format="CDF",overwrite=TRUE,varname="wn", varunit="mm",
 			longname="monthly soil moisture", xname="lon", yname="lat", zname="time", zunit=paste("months","since",paste0(y[1]-1,"-",12)))
