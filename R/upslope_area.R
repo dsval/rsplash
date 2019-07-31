@@ -33,9 +33,9 @@ upslope_areav2<-function(dem){
 	system("mpiexec pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
 	
 	# D8 flow directions
-	system("mpiexec D8Flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
+	system("mpiexec d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
 	# Contributing area
-	system("mpiexec AreaD8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
+	system("mpiexec aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
 	ups_ncell<-raster("dem_a_ac.tif")
 	area_p_cell<-area(ups_ncell)
 	ups_area<-overlay(ups_ncell, area_p_cell, fun=function(x,y){(x*y*1e6)},filename="areacatch.grd",overwrite=TRUE)

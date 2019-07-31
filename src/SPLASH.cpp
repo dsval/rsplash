@@ -341,7 +341,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 4.2 calculate infiltration assuming storm duration 6hrs
-    double infi = inf_GA(bub_press,surf_moist,Ksat,theta_s,lambda,inflow,24.0,slop);
+    double infi = inf_GA(bub_press,surf_moist,Ksat,theta_s,lambda,inflow,6.0,slop);
     // 4.2 calculate Dunne runoff
     double ro_d = max(inflow-infi,0.0);
     // 4.2 calculate recharge
@@ -704,7 +704,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 4.2 calculate infiltration assuming storm duration 6hrs
-    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,24.0,slop);
+    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
     // 4.2 calculate Dunne runoff
     double ro_d = max(inflow-infi,0.0);
     // 4.2 calculate recharge
