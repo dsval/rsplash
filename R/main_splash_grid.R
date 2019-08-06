@@ -388,7 +388,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				
 			}
 			close(pb)
-			stopCluster(cl)
+			parallel::stopCluster(cl)
 			
 			gc()
 		}
@@ -442,26 +442,26 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		}
 		# serial slow for bigrasters
 		# start.time<-Sys.time()
-		# result.all[c(1,5)]<-lapply(result.all[c(1,5)], month_mean)
-		# result.all[c(2,3,4,6,7)]<-lapply(result.all[c(2,3,4,6,7)], month_sum)
+		result.all[c(1,5)]<-lapply(result.all[c(1,5)], month_mean)
+		result.all[c(2,3,4,6,7)]<-lapply(result.all[c(2,3,4,6,7)], month_sum)
 		# end.time<-Sys.time()
 		# end.time-start.time
 		# start.time<-Sys.time()
-		cl <- parallel::makeCluster(sim.control$ncores, ...)
-		doSNOW::registerDoSNOW(cl)
-		snow::clusterEvalQ(cl, library("raster"))
-		snow::clusterExport(cl, list=c("result.all","month_sum","month_mean","indmonth"),envir=environment()) 
-		result.all[c(1,5)]<-snow::parLapply(cl,result.all[c(1,5)],month_mean)
-		# memory leak, close cluster and cleanmem
-		stopCluster(cl)
-		gc()
-		cl <- parallel::makeCluster(sim.control$ncores, ...)
-		doSNOW::registerDoSNOW(cl)
-		snow::clusterEvalQ(cl, library("raster"))
-		snow::clusterExport(cl, list=c("result.all","month_sum","month_mean","indmonth"),envir=environment()) 
-		result.all[c(2,3,4,6,7)]<-snow::parLapply(cl,result.all[c(2,3,4,6,7)],month_sum)
-		stopCluster(cl)
-		gc()
+		# cl <- parallel::makeCluster(sim.control$ncores, ...)
+		# doSNOW::registerDoSNOW(cl)
+		# snow::clusterEvalQ(cl, library("raster"))
+		# snow::clusterExport(cl, list=c("result.all","month_sum","month_mean","indmonth"),envir=environment()) 
+		# result.all[c(1,5)]<-snow::parLapply(cl,result.all[c(1,5)],month_mean)
+		# # memory leak, close cluster and cleanmem
+		# parallel::stopCluster(cl)
+		# gc()
+		# cl <- parallel::makeCluster(sim.control$ncores, ...)
+		# doSNOW::registerDoSNOW(cl)
+		# snow::clusterEvalQ(cl, library("raster"))
+		# snow::clusterExport(cl, list=c("result.all","month_sum","month_mean","indmonth"),envir=environment()) 
+		# result.all[c(2,3,4,6,7)]<-snow::parLapply(cl,result.all[c(2,3,4,6,7)],month_sum)
+		# parallel::stopCluster(cl)
+		# gc()
 		# setting ztime
 		settime<-function(x){
 			x<-raster::setZ(x,ztime.months)
@@ -502,7 +502,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	}
 	
 	gc()	
-	on.exit(stopCluster(cl))	
+	# on.exit(stopCluster(cl))	
 	return(result.all)
 	
 }
