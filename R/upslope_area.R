@@ -1,8 +1,21 @@
-
+#' upslope_area
+#'
+#' Computes the upslope area in m2 using topmodel for small areas or Taudem for large
+#' @param   sw_in, lon
+#' @param   tc, lon
+#' @param   pn, lon
+#' @param   elev, lon
+#' @return a matrix xts type
+#' @import topmodel
+#' @import raster 
+#' @keywords splash
+#' @export
+#' @examples
+#' splash.grid()
 upslope_area<-function(dem){
 	# require(raster)
 	setwd(dirname(rasterTmpFile()))
-	require(topmodel)
+	# require(topmodel)
 	rasterOptions(maxmemory=3e7, timer=FALSE, tmptime = 24, chunksize = 3e7,todisk=FALSE, overwrite=TRUE)
 	resolution<-sqrt(cellStats(area(dem), stat='mean', na.rm=TRUE))*1000
 	elev<-sinkfill(raster::as.matrix(dem),resolution,1)

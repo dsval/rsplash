@@ -1,89 +1,104 @@
-# main splash point
-#
-# VERSION: 2.0
-# LAST UPDATED: 2012-02-19
-#
-# ~~~~~~~~
-# license:
-# ~~~~~~~~
-# Copyright (C) 2016 Prentice Lab
-#
-# This file is part of the SPLASH model.
-#
-# SPLASH is free software: you can redistribute it and/or modify it under
-# the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation, either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# SPLASH is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with SPLASH.  If not, see <http://www.gnu.org/licenses/>.
-#
-# ~~~~~~~~~
-# citation:
-# ~~~~~~~~~
-# T. W. Davis, I. C. Prentice, B. D. Stocker, R. J. Whitley, H. Wang, B. J.
-# Evans, A. V. Gallego-Sala, M. T. Sykes, and W. Cramer, Simple process-led
-# algorithms for simulating habitats (SPLASH): Robust indices of radiation
-# evapo-transpiration and plant-available moisture, Geoscientific Model
-# Development, 2016 (in progress)
-#
-# ~~~~~~~~~~~~
-# description:
-# ~~~~~~~~~~~~
-# This script runs the SPLASH model for one year.
-#
-# ~~~~~~~~~~
-# changelog:
-# ~~~~~~~~~~
-# - updated monthly and daily results & process [15.01.13]
-# - updated plots of results [15.01.16]
-# - added example data CSV file [15.01.16]
-# - fixed Cramer-Prentice alpha definition [15.01.16]
-# - updated monthly results plot [15.01.22]
-# - added write out for daily/monthly results [15.01.27]
-# - added example of yearly looping [15.01.27]
-# - updated year extraction from filename in yearly loop example [15.01.30]
-# - fixed plots for Figs. 3 & 4 of manuscript [15.11.23]
-# - fixed directory paths [16.02.17]
-# - working with any grid datasets [16.02.18]
-# - spin-up pixels in parallel [16.02.18]
-# - call topmodel R package to calculate topo idx, streams and upslope area  [16.02.18]
-# - extract latitude from the data  [16.02.18]
-# - calculates slope and aspect from "raster" R package  [16.02.18]
-# - calculates streamflow from runoff and baseflow grids
+#' splash.point
+#'
+#' Apply splash algorithm
+#' @param   sw_in, lon
+#' @param   tc, lon
+#' @param   pn, lon
+#' @param   elev, lon
+#' @return a matrix xts type
+#' @import Rcpp 
+#' @import xts
+#' @keywords splash
+#' @export
+#' @examples
+#' splash.grid()
 
-require(Rcpp)
+
+# require(Rcpp)
 Rcpp::loadModule("splash_module", TRUE)
 
-#### DEFINE FUNCTIONS ########################################################
-# Hydrophysics V2
-# ************************************************************************
-# Name:     soil_hydro
-# Input:    - float, sand, (percent)
-#           - float, clay, (percent)
-#           - float, OM Organic Matter (percent)
-#           - float,fgravel, (percent-volumetric)
-# Output:   list:
-#           - float, FC, (volumetric fraction)
-#           - float, WP (volumetric fraction)
-#           - float,SAT, (volumetric fraction)
-#           - float, AWC (volumetric fraction)
-#           - float,Ksat, Saturate hydraulic conductivity/infiltration capacity(mm/hr)
-#           - float, A (Coefficient)
-#           - float, B (Clapp and Hornberger (1978) pore-size distribution index)
-# Features: calculate some soil hydrophysic characteristics
-# Ref:      Saxton, K.E., Rawls, W.J., 2006. Soil Water Characteristic Estimates 
-#           by Texture and Organic Matter for Hydrologic Solutions. 
-#           Soil Sci. Soc. Am. J. 70, 1569. doi:10.2136/sssaj2005.0117
-# ************************************************************************
+
+
+splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution){
+	
+	# require(xts)
+	# Extract time info from data
+	# year
+	y<-as.numeric(unique(format(time(pn),'%Y')))
+	# ndays in the year
+	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
+	# time index
+	ztime<-time(pn)
+	# time frequency
+	time.freq<-abs(as.numeric(ztime[1]-ztime[2], units = "days"))
+	
+	
+	
+	if (time.freq<2){		
+		
+		if (length(y)==1){
+			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
+			
+			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution)
+			# result<-xts(result,ztime)
+			result<-do.call(cbind,result)
+		}
+		else if(length(y)>1){
+			
+			end<-cumsum(ny)
+			start<-end+1
+			result<-list()
+			sw_av<-tapply(sw_in,format(time(sw_in),"%j"),mean)
+			tc_av<-tapply(tc,format(time(sw_in),"%j"),mean)
+			pn_av<-tapply(pn,format(time(sw_in),"%j"),mean)
+			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
+			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
+			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:ny[1]], tc[1:ny[1]],  pn[1:ny[1]],initial$sm, y[1], initial$snow,
+				soil_data,Au,resolution)
+			
+			for (i in 2:length(y)){
+				
+				stidx<-i-1
+				# correct for leap years	
+				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[stidx]:end[i]], tc[start[stidx]:end[i]], pn[start[stidx]:end[i]],
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution)
+			}
+			result<-lapply(result,FUN=as.data.frame)
+			result<-do.call(rbind,result)
+			
+		}
+		
+	}
+	# order results as time series
+	
+	
+	result<-xts(result,ztime)		
+	return(result)
+}
+
+
 
 soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
-	
+	# Hydrophysics V2
+	# ************************************************************************
+	# Name:     soil_hydro
+	# Input:    - float, sand, (percent)
+	#           - float, clay, (percent)
+	#           - float, OM Organic Matter (percent)
+	#           - float,fgravel, (percent-volumetric)
+	# Output:   list:
+	#           - float, FC, (volumetric fraction)
+	#           - float, WP (volumetric fraction)
+	#           - float,SAT, (volumetric fraction)
+	#           - float, AWC (volumetric fraction)
+	#           - float,Ksat, Saturate hydraulic conductivity/infiltration capacity(mm/hr)
+	#           - float, A (Coefficient)
+	#           - float, B (Clapp and Hornberger (1978) pore-size distribution index)
+	# Features: calculate some soil hydrophysic characteristics
+	# Ref:      Saxton, K.E., Rawls, W.J., 2006. Soil Water Characteristic Estimates 
+	#           by Texture and Organic Matter for Hydrologic Solutions. 
+	#           Soil Sci. Soc. Am. J. 70, 1569. doi:10.2136/sssaj2005.0117
+	# ************************************************************************
 	results<-list()
 	# testing
 	# sand<-60
@@ -172,21 +187,22 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	
 	return(results)
 }
-# ************************************************************************
-# Name:     julian_day
-# Inputs:   - double, year (y)
-#           - double, month (m)
-#           - double, day of month (i)
-# Returns:  double, Julian day
-# Features: This function converts a date in the Gregorian calendar
-#           to a Julian day number (i.e., a method of consecutative
-#           numbering of days---does not have anything to do with
-#           the Julian calendar!)
-#           * valid for dates after -4712 January 1 (i.e., jde >= 0)
-# Ref:      Eq. 7.1 J. Meeus (1991), Chapter 7 "Julian Day", Astronomical
-#             Algorithms
-# ************************************************************************
+
 julian_day <- function(y, m, i) {
+	# ************************************************************************
+	# Name:     julian_day
+	# Inputs:   - double, year (y)
+	#           - double, month (m)
+	#           - double, day of month (i)
+	# Returns:  double, Julian day
+	# Features: This function converts a date in the Gregorian calendar
+	#           to a Julian day number (i.e., a method of consecutative
+	#           numbering of days---does not have anything to do with
+	#           the Julian calendar!)
+	#           * valid for dates after -4712 January 1 (i.e., jde >= 0)
+	# Ref:      Eq. 7.1 J. Meeus (1991), Chapter 7 "Julian Day", Astronomical
+	#             Algorithms
+	# ************************************************************************
 	if (m <= 2) {
 		y <- y - 1
 		m <- m + 12
@@ -197,28 +213,30 @@ julian_day <- function(y, m, i) {
 	jde <- floor(365.25*(y + 4716)) + floor(30.6001*(m + 1)) + i + b - 1524.5
 	return(jde)
 }
-# ************************************************************************
-# Name:     dsin
-# Inputs:   double (d), angle in degrees
-# Returns:  double, sine of angle
-# Features: This function calculates the sine of an angle (d) given
-#           in degrees.
-# Depends:  pir
-# ************************************************************************
+
 dsin <- function(d) {
+	# ************************************************************************
+	# Name:     dsin
+	# Inputs:   double (d), angle in degrees
+	# Returns:  double, sine of angle
+	# Features: This function calculates the sine of an angle (d) given
+	#           in degrees.
+	# Depends:  pir
+	# ************************************************************************
 	pir <- pi/180       # pi in radians
 	sin(d*pir)
 }
-# ************************************************************************
-# Name:     cum.interp, avg.interp
-# Inputs:   
-#               x.month ..... double, variable monthly value
-#               y ....... year
-# Returns:  double, daily values
-# Features: Interpolate monthly values to daily values
-# Depends:  julian day
-# ************************************************************************
+
 cum.interp<-function(x.months,y){
+	# ************************************************************************
+	# Name:     cum.interp, avg.interp
+	# Inputs:   
+	#               x.month ..... double, variable monthly value
+	#               y ....... year
+	# Returns:  double, daily values
+	# Features: Interpolate monthly values to daily values
+	# Depends:  julian day
+	# ************************************************************************
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 	ndaysmonth<-rep(NA,12)
 	for(i in 1: 12){ndaysmonth[i]<-julian_day(y,i+1,1)-julian_day(y,i,1)}
@@ -236,19 +254,20 @@ avg.interp<-function(x.months,y){
 	if (sum(!is.na(x.months)) < 2) {return(rep(NA, ny))} 
 	else {approx(ind.month, x.months, ind.day, method = "linear", rule=2)$y}
 }
-# ************************************************************************
-# Name:     frain_func
-# Inputs:   
-#               tc ..... double, air daily temperature C
-#			 Tt... double, parameter threshold temperature,where 50% of precipitation falls as rain
-#			 Tr... double, TR is range of temperatures where both rainfall and snowfall can occur, in °C, typically around 13 °C
-#               y ....... year
-# Returns:  fraction of the precipitaion falling as rain
-# Features: calculates the fraction of the precipitaion falling as rain, accounting for monthly variations of the parameters 
-# Depends:  julian day
-# Ref:      Kienzle, 2008
-# ************************************************************************
+
 frain_func<-function(tc,Tt,Tr,y,ny=NULL){
+	# ************************************************************************
+	# Name:     frain_func
+	# Inputs:   
+	#               tc ..... double, air daily temperature C
+	#			 Tt... double, parameter threshold temperature,where 50% of precipitation falls as rain
+	#			 Tr... double, TR is range of temperatures where both rainfall and snowfall can occur, in °C, typically around 13 °C
+	#               y ....... year
+	# Returns:  fraction of the precipitaion falling as rain
+	# Features: calculates the fraction of the precipitaion falling as rain, accounting for monthly variations of the parameters 
+	# Depends:  julian day
+	# Ref:      Kienzle, 2008
+	# ************************************************************************
 	
 	if(length(tc)>1){
 		ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
@@ -286,29 +305,28 @@ snowfall_prob<-function(tc,lat,elev){
 	# Ref:      Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., 2018. Spatial variation of the 
 	# 		  rain-snow temperature threshold across the Northern Hemisphere. Nat. Commun. 9, 1–9. doi:10.1038/s41467-018-03629-7
 	# ************************************************************************
-	p_snow<-1/(1+exp(-0.5827+1.319*tc-elev*4.18E-4-abs(lat)*1.140E-2))
+	p_snow<-1/(1+exp(-0.5827+1.319*as.numeric(tc)-as.numeric(elev)*4.18E-4-abs(as.numeric(lat))*1.140E-2))
 	return(p_snow)
 }
-# ************************************************************************
-# ************************************************************************
-# ************************************************************************
-# ************************************************************************
-# Name:     spin_up
-# Inputs:   - list, meteorological data (mdat)
-#               $num_lines ..... double, length of meteorol. variable lists
-#               $lat_deg ....... double latitude (degrees)
-#               $elev_m ......... double, elevation (m)
-#               $year .......... double, year
-#               $sw_in ............ list, fraction of sunshine hours
-#               $tair .......... list, mean daily air temperature (deg. C)
-#               $pn ............ list, precipitation (mm/d)
-#           - list, daily totals (dtot)
-#               $wm ............ list, daily soil moisture (mm)
-# Returns:  list, daily totals
-# Features: Updates the soil moisture in daily totals until equilibrium
-# Depends:  quick_run
-# ************************************************************************
+
 rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolution) {
+	
+	# ************************************************************************
+	# Name:     spin_up
+	# Inputs:   - list, meteorological data (mdat)
+	#               $num_lines ..... double, length of meteorol. variable lists
+	#               $lat_deg ....... double latitude (degrees)
+	#               $elev_m ......... double, elevation (m)
+	#               $year .......... double, year
+	#               $sw_in ............ list, fraction of sunshine hours
+	#               $tair .......... list, mean daily air temperature (deg. C)
+	#               $pn ............ list, precipitation (mm/d)
+	#           - list, daily totals (dtot)
+	#               $wm ............ list, daily soil moisture (mm)
+	# Returns:  list, daily totals
+	# Features: Updates the soil moisture in daily totals until equilibrium
+	# Depends:  quick_run
+	# ************************************************************************
 	# get number of days in the year y
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 	# interpolate monthly to daily
@@ -342,30 +360,31 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	
 	return(result)
 }
-# ************************************************************************
-# Name:     run_one_year
-# Inputs:   - double, latitude, deg (lat)
-#           - double, elevation, m (elev)
-#           - double, day of year (n)
-#           - double, year (y)
-#           - double, daily soil moisture content, mm (wn)
-#           - double, daily fraction of bright sunshine (sw_in)
-#           - double, daily air temperature, deg C (tc)
-#           - double, daily precipitation, mm (pn)
-# Returns:  list
-#             $ho - daily solar irradiation, J/m2
-#             $hn - daily net radiation, J/m2
-#             $ppfd - daily PPFD, mol/m2
-#             $cond - daily condensation water, mm
-#             $eet - daily equilibrium ET, mm
-#             $pet - daily potential ET, mm
-#             $aet - daily actual ET, mm
-#             $wn - daily soil moisture, mm
-#             $ro - daily runoff, mm
-# Features: Runs SPLASH at a single location/pixel for one year.
-# Depends:  run_one_day
-# ************************************************************************
+
 run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,Au,resolution) {
+	# ************************************************************************
+	# Name:     run_one_year
+	# Inputs:   - double, latitude, deg (lat)
+	#           - double, elevation, m (elev)
+	#           - double, day of year (n)
+	#           - double, year (y)
+	#           - double, daily soil moisture content, mm (wn)
+	#           - double, daily fraction of bright sunshine (sw_in)
+	#           - double, daily air temperature, deg C (tc)
+	#           - double, daily precipitation, mm (pn)
+	# Returns:  list
+	#             $ho - daily solar irradiation, J/m2
+	#             $hn - daily net radiation, J/m2
+	#             $ppfd - daily PPFD, mol/m2
+	#             $cond - daily condensation water, mm
+	#             $eet - daily equilibrium ET, mm
+	#             $pet - daily potential ET, mm
+	#             $aet - daily actual ET, mm
+	#             $wn - daily soil moisture, mm
+	#             $ro - daily runoff, mm
+	# Features: Runs SPLASH at a single location/pixel for one year.
+	# Depends:  run_one_day
+	# ************************************************************************
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 	if(length(sw_in)==12){sw_in<-avg.interp(sw_in,y)}
 	if(length(tc)==12){tc<-avg.interp(tc,y)}
@@ -413,65 +432,5 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	
 	daily_totals<-my_splash$run_one_year(as.integer(ny), as.integer(y),as.numeric(sw_in),as.numeric(tc),as.numeric(pn),as.numeric(wn),slop,asp,as.numeric(snow),as.numeric(snowfall),soil_info)
 	return(daily_totals)
-}
-
-
-
-
-splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution){
-	
-	require(xts)
-	# Extract time info from data
-	# year
-	y<-as.numeric(unique(format(time(pn),'%Y')))
-	# ndays in the year
-	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
-	# time index
-	ztime<-time(pn)
-	# time frequency
-	time.freq<-abs(as.numeric(ztime[1]-ztime[2], units = "days"))
-	
-	
-	
-	if (time.freq<2){		
-		
-		if (length(y)==1){
-			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
-			
-			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution)
-			# result<-xts(result,ztime)
-			result<-do.call(cbind,result)
-		}
-		else if(length(y)>1){
-			
-			end<-cumsum(ny)
-			start<-end+1
-			result<-list()
-			sw_av<-tapply(sw_in,format(time(sw_in),"%j"),mean)
-			tc_av<-tapply(tc,format(time(sw_in),"%j"),mean)
-			pn_av<-tapply(pn,format(time(sw_in),"%j"),mean)
-			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
-			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
-			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:ny[1]], tc[1:ny[1]],  pn[1:ny[1]],initial$sm, y[1], initial$snow,
-				soil_data,Au,resolution)
-			
-			for (i in 2:length(y)){
-				
-				stidx<-i-1
-				# correct for leap years	
-				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[stidx]:end[i]], tc[start[stidx]:end[i]], pn[start[stidx]:end[i]],
-					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution)
-			}
-			result<-lapply(result,FUN=as.data.frame)
-			result<-do.call(rbind,result)
-						
-		}
-		
-	}
-	# order results as time series
-	
-	
-	result<-xts(result,ztime)		
-	return(result)
 }
 
