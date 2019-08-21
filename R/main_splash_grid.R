@@ -8,7 +8,7 @@
 #' @return a matrix xts type
 #' @import Rcpp
 #' @import raster 
-#' @import doSNOW  
+#' @import parallel  
 #' @import zoo
 #' @keywords splash
 #' @export
@@ -145,12 +145,13 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			
 			for (i in 2:length(y)){
 				cat(paste("solving","year",y[i])); flush.console();
-				setTxtProgressBar(pb,i)
+				
 				stidx<-i-1
 				
 				result[[i]]<-run_one_year.grid(sw_in[[start[i]:end[i]]], tc[[start[i]:end[i]]], pn[[start[i]:end[i]]],result[[stidx]]$wn,
 					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,sim.control$inmem,outdir=tmpdir)
 				
+				setTxtProgressBar(pb,i)
 				
 			}
 			close(pb)
@@ -222,8 +223,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			cl <- getCluster()
 			on.exit( returnCluster() )
 			nodes <- length(cl)
-			bs <- blockSize(x, minblocks=nodes*4)
-			snow::clusterExport(cl, list=c('x','func','indmonth','bs'),envir=environment()) 
+			bs <- blockSize(x, minblocks=nodes)
+			parallel::clusterExport(cl, varlist=c('x','func','indmonth','bs'),envir=environment()) 
 			pb <- pbCreate(bs$n)
 			pb <- txtProgressBar(min=1,max = bs$n, style = 1)
 			###############################################################################################
@@ -245,7 +246,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			# 03. send tasks to the nodes
 			###############################################################################################
 			for (i in 1:nodes) {
-				snow::sendCall(cl[[i]], clFun, i, tag=i)
+				parallel:::sendCall(cl[[i]], clFun, i, tag=i)
 			}
 			###############################################################################################
 			# 04. write to the disk on the go, or save to the ram
@@ -280,7 +281,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			###############################################################################################	
 			for (i in 1:bs$n) {
 				
-				d <- snow::recvOneData(cl)
+				d <- parallel:::recvOneData(cl)
 				# error?
 				if (! d$value$success) {
 					stop('error!! check the data...')
@@ -299,7 +300,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				# need to send more data?
 				ni <- nodes + i
 				if (ni <= bs$n) {
-					snow::sendCall(cl[[d$node]], clFun, ni, tag=ni)
+					parallel:::sendCall(cl[[d$node]], clFun, ni, tag=ni)
 				}
 				setTxtProgressBar(pb,i)
 			}
@@ -368,14 +369,25 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	snoweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
 	extent(snoweq)<-extent(elev)	
 	setwd(outdir)
+	if(inmem){
+		sw_in<-readAll(sw_in)
+		tc<-readAll(tc)
+		pn<-readAll(pn)
+		elev<-readAll(elev)
+		lat<-readAll(lat)
+		terraines<-readAll(terraines)
+		soil<-readAll(soil)
+		Au<-readAll(Au)
+	}
 	###############################################################################################
 	# 01. set the clusters for parallel computing
 	###############################################################################################	
 	cl <- getCluster()
 	on.exit( returnCluster() )
 	nodes <- length(cl)
-	bs <- blockSize(sw_in, minblocks=nodes*4)
-	snow::clusterExport(cl, list=c("sw_in","tc","pn","elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
+	message('Using cluster with ', nodes, ' nodes')
+	bs <- blockSize(sw_in, minblocks=nodes)
+	parallel::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = bs$n, style = 3)
 	###############################################################################################
@@ -399,7 +411,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	# 03. send tasks to the nodes
 	###############################################################################################
 	for (i in 1:nodes) {
-		snow::sendCall(cl[[i]], clFun, i, tag=i)
+		parallel:::sendCall(cl[[i]], clFun, i, tag=i)
 	}
 	###############################################################################################
 	# 04. write to the disk on the go, or save to the ram
@@ -418,7 +430,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	###############################################################################################	
 	for (i in 1:bs$n) {
 		
-		d <- snow::recvOneData(cl)
+		d <- parallel:::recvOneData(cl)
 		# error?
 		if (! d$value$success) {
 			stop('cluster error')
@@ -438,7 +450,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		# need to send more data?
 		ni <- nodes + i
 		if (ni <= bs$n) {
-			snow::sendCall(cl[[d$node]], clFun, ni, tag=ni)
+			parallel:::sendCall(cl[[d$node]], clFun, ni, tag=ni)
 		}
 		setTxtProgressBar(pb,i)
 	}
@@ -489,14 +501,26 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	# make bricks, raster stacks are not working, result should be as stack, otherwise merging everithing wont work
 	gc()
 	setwd(outdir)
+	if(inmem){
+		sw_in<-readAll(sw_in)
+		tc<-readAll(tc)
+		pn<-readAll(pn)
+		wn<-readAll(wn)
+		snow<-readAll(snow)
+		elev<-readAll(elev)
+		lat<-readAll(lat)
+		terraines<-readAll(terraines)
+		soil<-readAll(soil)
+		Au<-readAll(Au)
+	}
 	###############################################################################################
 	# 01. set the clusters for parallel computing
 	###############################################################################################	
 	cl <- getCluster()
 	on.exit( returnCluster() )
 	nodes <- length(cl)
-	bs <- blockSize(sw_in, minblocks=nodes*4)
-	snow::clusterExport(cl, list=c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
+	bs <- blockSize(sw_in, minblocks=nodes)
+	parallel::clusterExport(cl, varlist=c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = bs$n, style = 1)
 	###############################################################################################
@@ -523,7 +547,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	# 03. send tasks to the nodes
 	###############################################################################################
 	for (i in 1:nodes) {
-		snow::sendCall(cl[[i]], clFun, i, tag=i)
+		parallel:::sendCall(cl[[i]], clFun, i, tag=i)
 	}
 	###############################################################################################
 	# 04. write to the disk on the go, or save to the ram
@@ -553,7 +577,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	###############################################################################################	
 	for (i in 1:bs$n) {
 		
-		d <- snow::recvOneData(cl)
+		d <- parallel:::recvOneData(cl)
 		# error?
 		if (! d$value$success) {
 			stop('error!! check the data...')
@@ -584,7 +608,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		# need to send more data?
 		ni <- nodes + i
 		if (ni <= bs$n) {
-			snow::sendCall(cl[[d$node]], clFun, ni, tag=ni)
+			parallel:::sendCall(cl[[d$node]], clFun, ni, tag=ni)
 		}
 		setTxtProgressBar(pb,i)
 	}

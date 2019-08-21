@@ -1,13 +1,13 @@
 Package: rsplash
 Type: Package
-Title: What the Package Does in One 'Title Case' Line
+Title: Simple Process-led Algorithms for Simulating Habitats
 Version: 1.0
 Date: 2019-08-11
-Author: Your Name
-Maintainer: Your Name <your@email.com>
-Description: One paragraph description of what the package does as one
-        or more full sentences.
+Author: David Sandoval <dsandovalhdh@gmail.com> [aut, cre]
+Maintainer: 'David Sandoval' <dsandovalhdh@gmail.com>
+Description: Runs the SPLASH v2.0 Algorithm.
 License: GPL (>= 2)
-Imports: Rcpp (>= 1.0.1)
+Imports: Rcpp, raster, xts, parallel
+ByteCompile: TRUE
 LinkingTo: Rcpp
 RoxygenNote: 6.1.1
