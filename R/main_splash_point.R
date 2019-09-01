@@ -12,13 +12,6 @@
 #' @export
 #' @examples
 #' splash.grid()
-
-
-# require(Rcpp)
-Rcpp::loadModule("splash_module", TRUE)
-
-
-
 splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution){
 	
 	# require(xts)
@@ -48,9 +41,9 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			end<-cumsum(ny)
 			start<-end+1
 			result<-list()
-			sw_av<-tapply(sw_in,format(time(sw_in),"%j"),mean)
-			tc_av<-tapply(tc,format(time(sw_in),"%j"),mean)
-			pn_av<-tapply(pn,format(time(sw_in),"%j"),mean)
+			sw_av<-tapply(sw_in,format(time(sw_in),"%j"),mean, na.rm=TRUE)
+			tc_av<-tapply(tc,format(time(sw_in),"%j"),mean, na.rm=TRUE)
+			pn_av<-tapply(pn,format(time(sw_in),"%j"),mean, na.rm=TRUE)
 			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
 			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
 			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:ny[1]], tc[1:ny[1]],  pn[1:ny[1]],initial$sm, y[1], initial$snow,
@@ -75,6 +68,12 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 	result<-xts(result,ztime)		
 	return(result)
 }
+
+
+# require(Rcpp)
+Rcpp::loadModule("splash_module", TRUE)
+
+
 
 
 
