@@ -177,8 +177,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    //double RES = soil_info[1];
-    double RES = soil_info[7];
+    double RES = soil_info[1];
+    //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
     //Pixel Area
@@ -542,7 +542,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content
-    double RES = soil_info[7];
+    double RES = soil_info[1];
     //upslope area
     double Au = soil_info[8];
     //Pixel Area

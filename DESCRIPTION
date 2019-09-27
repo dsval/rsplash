@@ -7,7 +7,7 @@ Author: David Sandoval <dsandovalhdh@gmail.com> [aut, cre]
 Maintainer: 'David Sandoval' <dsandovalhdh@gmail.com>
 Description: Runs the SPLASH v2.0 Algorithm.
 License: GPL (>= 2)
-Imports: Rcpp, raster, xts, parallel
+Imports: Rcpp, raster, xts, parallel, topmodel
 ByteCompile: TRUE
 LinkingTo: Rcpp
 RoxygenNote: 6.1.1
