@@ -130,7 +130,7 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	sat<-1-(bd/dp)
 	
 	# fc<-(sat/bd)*(0.565 + (0.991 - 0.565)*clay^0.5)*exp(-(0.103*sand - 0.785* OM)/(sat/bd))
-	fc<-(sat/bd)*(0.3366685 + (1.417544 - 0.3366685)*clay^0.5)*exp(-(0.03320495*sand - 0.2755312* OM)/(sat/bd))
+	fc<-(sat/bd)*(0.3366685 + (1.417544 - 0.3366685)*clay^0.5)*exp(-1*(0.03320495*sand - 0.2755312* OM)/(sat/bd))
 	# fc<-
 	fc[fc<0]<-0.1
 	fc[fc>1]<-1
