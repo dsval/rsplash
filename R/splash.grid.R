@@ -20,7 +20,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	# require(xts)
 	# require(doSNOW)
 	# require(zoo)
-	rasterOptions(maxmemory=1e9, tmptime = 24, chunksize = 1e8,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
+	rasterOptions(maxmemory=3e7, tmptime = 24, chunksize = 1e7,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
 	
 	###########################################################################
 	# 01. Calculate spatial distributed variables
@@ -65,10 +65,10 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			###########################################################################
 			# 3.1. Equilibrate
 			###########################################################################
-			cat("reaching steady state"); flush.console();
+			cat("reaching steady state","\n")
 			beginCluster(sim.control$ncores, ...)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1])); flush.console();
+			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			# endCluster()
 			gc()
@@ -79,9 +79,9 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			start<-end+1
 			result<-list()
 			beginCluster(sim.control$ncores, ...)
-			cat("reaching steady state"); flush.console();
+			cat("reaching steady state","\n")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1]))
+			cat(paste("solving","year",y[1]),"\n")
 			result[[1]]<-run_one_year.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]], eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],
 				resolution,Au,sim.control$inmem,outdir=tmpdir)
 			rm(eq)
@@ -92,7 +92,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			# correct for leap years	inside c++ functions
 			pb <- txtProgressBar(min=1,max = length(y), 3)
 			for (i in 2:length(y)){
-				cat(paste("solving","year",y[i])); flush.console();
+				cat(paste("solving","year",y[i]),"\n")
 				
 				stidx<-i-1
 				result[[i]]<-run_one_year.grid(sw_in[[start[stidx]:end[i]]], tc[[start[stidx]:end[i]]], pn[[start[stidx]:end[i]]],result[[stidx]]$wn,
@@ -116,10 +116,10 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	else if (abs(as.numeric(time.freq, units = "days"))>20){		
 		
 		if (length(y)==1){
-			cat("reaching steady state"); flush.console();
+			cat("reaching steady state","\n")
 			beginCluster(sim.control$ncores, ...)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1])); flush.console();
+			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			# endCluster()
 		}
@@ -129,9 +129,9 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			start<-end-11
 			result<-list()
 			beginCluster(sim.control$ncores, ...)
-			cat("reaching steady state"); flush.console();
+			cat("reaching steady state","\n")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1])); flush.console();
+			cat(paste("solving","year",y[1]),"\n")
 			result[[1]]<-run_one_year.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]], eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],
 				resolution,Au,sim.control$inmem,outdir=tmpdir)
 			# endCluster()
@@ -144,7 +144,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			pb <- txtProgressBar(min=1,max = length(y),style = 3)
 			
 			for (i in 2:length(y)){
-				cat(paste("solving","year",y[i])); flush.console();
+				cat(paste("solving","year",y[i]),"\n")
 				
 				stidx<-i-1
 				
@@ -167,7 +167,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	###########################################################################
 	if(length(y)>1){
 		flush.console();
-		cat("building the grids"); flush.console();
+		cat("building the grids","\n")
 		
 		result.all<-list()
 		# memory leak???	
@@ -199,7 +199,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	result.all<-lapply(result.all,settime)
 	
 	if (sim.control$output.mode=="monthly"){
-		cat("aggregating to monthly"); flush.console();
+		cat("aggregating to monthly","\n")
 		###########################################################################
 		# 5. Define function to aggregate in parallel
 		###########################################################################
@@ -223,7 +223,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			cl <- getCluster()
 			on.exit( returnCluster() )
 			nodes <- length(cl)
-			bs <- blockSize(x, minblocks=nodes*5)
+			bs <- blockSize(x, minblocks=nodes*10)
 			parallel::clusterExport(cl, varlist=c('x','func','indmonth','bs'),envir=environment()) 
 			pb <- pbCreate(bs$n)
 			pb <- txtProgressBar(min=1,max = bs$n, style = 1)
@@ -386,7 +386,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	on.exit( returnCluster() )
 	nodes <- length(cl)
 	message('Using cluster with ', nodes, ' nodes')
-	bs <- blockSize(sw_in, minblocks=nodes*5)
+	bs <- blockSize(sw_in, minblocks=nodes*10)
 	parallel::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = bs$n, style = 3)
@@ -519,7 +519,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	cl <- getCluster()
 	on.exit( returnCluster() )
 	nodes <- length(cl)
-	bs <- blockSize(sw_in, minblocks=nodes*5)
+	bs <- blockSize(sw_in, minblocks=nodes*10)
 	parallel::clusterExport(cl, varlist=c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = bs$n, style = 1)
