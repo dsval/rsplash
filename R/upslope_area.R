@@ -16,7 +16,7 @@ upslope_area<-function(dem){
 	# require(raster)
 	setwd(dirname(rasterTmpFile()))
 	# require(topmodel)
-	rasterOptions(maxmemory=3e7, timer=FALSE, tmptime = 24, chunksize = 3e7,todisk=FALSE, overwrite=TRUE)
+	# rasterOptions(maxmemory=3e7, timer=FALSE, tmptime = 24, chunksize = 3e7,todisk=FALSE, overwrite=TRUE)
 	resolution<-sqrt(cellStats(area(dem), stat='mean', na.rm=TRUE))*1000
 	elev<-sinkfill(raster::as.matrix(dem),resolution,1)
 	elev<-raster(elev)

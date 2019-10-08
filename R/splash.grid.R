@@ -20,7 +20,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	# require(xts)
 	# require(doSNOW)
 	# require(zoo)
-	rasterOptions(maxmemory=3e7, tmptime = 24, chunksize = 1e7,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
+	# rasterOptions(maxmemory=3e7, tmptime = 24, chunksize = 1e7,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
 	
 	###########################################################################
 	# 01. Calculate spatial distributed variables
@@ -29,7 +29,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	# get resolution in m2
 	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
 	# 1.1 calculate upslope area in m2, *all the raster will be saved to the disk by default
-	if (ncell(elev)>1.5e7|resolution>=25000){
+	if (ncell(elev)>1e7|resolution>=10000){
 		Au<-upslope_areav2(elev)
 	}else{
 		Au<-upslope_area(elev)
