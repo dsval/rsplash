@@ -14,7 +14,7 @@
 #' splash.grid()
 upslope_area<-function(dem){
 	# require(raster)
-	setwd(dirname(rasterTmpFile()))
+	setwd(tmpdir)
 	# require(topmodel)
 	# rasterOptions(maxmemory=3e7, timer=FALSE, tmptime = 24, chunksize = 3e7,todisk=FALSE, overwrite=TRUE)
 	resolution<-sqrt(cellStats(area(dem), stat='mean', na.rm=TRUE))*1000
@@ -30,29 +30,75 @@ upslope_area<-function(dem){
 	extent(areacatch)<-extent(elev)
 	crs(areacatch)<-crs(elev)
 	areacatch<-writeRaster(areacatch,"areacatch.grd",overwrite=TRUE)
+	flowdir<-terrain(elev,opt='flowdir')
+	ncellin<-ncellflow(flowdir,inout='in',met='top')
+	ncellout<-ncellflow(flowdir,inout='out',met='top')
 	rm(elev)
 	gc()
-	return(areacatch)
+	# return(areacatch)
+	return(list(ups_area=areacatch,ncellin=ncellin,ncellout=ncellout))
 	
 }
-upslope_areav2<-function(dem){
+upslope_areav2<-function(dem,...){
 	# returns upslope area in square meters
 	# require(raster)
 	# Set working directory to your location
-	setwd(dirname(rasterTmpFile()))
+	setwd(tmpdir)
 	writeRaster(dem,"rawdem.tif",format="GTiff", overwrite=TRUE)
 	
-	# Pitremove
-	system("mpiexec pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
+	if(... == 'MPI'){
+		# Pitremove
+		system("pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
+		
+		# D8 flow directions
+		system("d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
+		# Contributing area
+		system("aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
+	}else{
+		# Pitremove
+		system("mpiexec pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
+		
+		# D8 flow directions
+		system("mpiexec d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
+		# Contributing area
+		system("mpiexec aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
+	}
 	
-	# D8 flow directions
-	system("mpiexec d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# Contributing area
-	system("mpiexec aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
+	
 	ups_ncell<-raster("dem_a_ac.tif")
+	flowdir<-raster("dem_p.tif")
 	area_p_cell<-area(ups_ncell)
 	ups_area<-overlay(ups_ncell, area_p_cell, fun=function(x,y){(x*y*1e6)},filename="areacatch.grd",overwrite=TRUE)
-	return(ups_area)
+	ncellin<-ncellflow(flowdir,inout='in',met='tau')
+	ncellout<-ncellflow(flowdir,inout='out',met='tau')
+	return(list(ups_area=ups_area,ncellin=ncellin,ncellout=ncellout))
+	# return(ups_area)
 	
+}
+
+
+ncellflow<-function(flowdir,inout='in',met='top'){
+	if(inout=='in'&& met=='top'){
+		flow<-matrix(c(2,1,128,4,0,64,8,16,32), nrow=3)
+	}else if (inout=='out'&& met=='top'){
+		flow<-matrix(rev(c(2,1,128,4,0,64,8,16,32)), nrow=3)
+	}else if (inout=='in'&& met=='tau'){
+		flow<-matrix(c(8,1,2,7,0,3,6,5,4), nrow=3)
+	}else if (inout=='out'&& met=='tau'){
+		flow<-matrix(rev(c(8,1,2,7,0,3,6,5,4)), nrow=3)
+	}
+		
+	compare<-function(x){
+		if(length(x[is.na(x)])==9){
+			nmatch<-NA
+		}else{
+			comp<-x[!is.na(x)]==flow[!is.na(x)]
+			nmatch<-length(comp[comp==TRUE])
+		}
+		nmatch
+	}
+	
+	r <- focal(flowdir, w=matrix(1,nrow=3,ncol=3), fun=compare)
+	r
 	
 }

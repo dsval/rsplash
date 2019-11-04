@@ -106,6 +106,8 @@ SPLASH::SPLASH(double a, double b)
     dsoil.sm = 0.0;
     dsoil.ro = 0.0;
     dsoil.swe = 0.0;
+    dsoil.sqout = 0.0;
+    dsoil.tdr = 0.0;
 }
 
 /* \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -145,7 +147,8 @@ double SPLASH::dtan(double x){
 }
 
 void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
-                       double pn, smr &dsm, double slop, double asp, double snow, double snowfall, vector <double> &soil_info) {
+                       double pn, smr &dsm, double slop, double asp, double snow, double snowfall, vector <double> &soil_info,
+                       double qin, double td) {
     /* ***********************************************************************
     Name:     SPLASH.quick_run
     Input:    - int, day of year (n)
@@ -183,12 +186,19 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double Au = soil_info[8];
     //Pixel Area
     double Ai = soil_info[9];
+    //neighbourhood  cells
+    double cellin = soil_info[10];
+    double cellout = soil_info[11];
     double theta_s = SAT/(depth *1000.0);
     double theta_r = RES/(depth *1000.0);
     double theta_fc = FC/(depth *1000.0);
     double theta_wp = WP/(depth *1000.0);
+    double theta_q0 = theta_wp + 0.01;
+    double theta_qs = theta_s - 0.02;
     double theta_i = (wn)/(depth*1000.0);
     double alph = 4.0 + 2.0*lambda;
+    // 7.1. assume hydraulic gradient as the slope
+    double hyd_grad = (dtan(slop));
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 00. Compute real FC
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -348,7 +358,59 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double R = infi - dn.aet;
     // 4.2 update soil moisture
     //double sm = wn + pn + dn.cond - dn.aet + snowmelt;
-    double sm = wn + R;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.4. Estimate recession constant Kb
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.4.1 estimate baseflow at ~wilting point
+    // 7.4.1.1 calculate matric potential (mmH2O)
+    double psi_q0 = bub_press/pow((((theta_q0-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // 7.4.1.2 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
+    double wtd_q0 = ((bub_press-psi_q0)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd_q0 < 0.0 || isnan(wtd_q0)==1){
+        wtd_q0 = 0.0;
+    }else if (wtd_q0 > depth){
+        wtd_q0 = depth;
+    }
+    //7.4.1.3 calculate pixel's cross sectional area for baseflow output
+    double Acs_out_q0 = (depth - wtd_q0) * sqrt(Ai);
+    //7.4.1.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
+    double T_q0 = hyd_grad* (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_q0), (3.0*lambda+1.0))-pow((bub_press/(psi_q0 +(wtd_q0*1000.0))), (3.0*lambda+1.0)) );
+    //7.4.1.5 adjust transmitance to m3/day
+    double Q_q0 = T_q0 * ((24.0 * sqrt(Ai))/(1000.0));
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 7.4.2 estimate baseflow at saturation Q_qs
+    // 7.4.2.1 calculate matric potential (mmH2O)
+    double psi_qs = bub_press/pow((((theta_qs-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // 7.4.2.2 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
+    double wtd_qs = ((bub_press-psi_qs)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd_qs < 0.0 || isnan(wtd_qs)==1){
+        wtd_qs = 0.0;
+    }else if (wtd_qs > depth){
+        wtd_qs = depth;
+    }
+    //7.4.2.3 calculate pixel's cross sectional area for baseflow output [m^2]
+    double Acs_out_qs = (depth - wtd_qs) * sqrt(Ai);
+    //7.4.2.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
+    double T_qs = hyd_grad * (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_qs), (3.0*lambda+1.0))-pow((bub_press/(psi_qs +(wtd_qs*1000.0))), (3.0*lambda+1.0)) );
+    //7.4.2.5 adjust transmitance to m3/day
+    double Q_qs = T_qs * ((24.0 * sqrt(Ai))/(1000.0));
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 7.4.2 compute Kb
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    double Kb = exp((Q_q0-Q_qs)/((SAT-WP)*(Ai/1000.0)));
+       
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.6. Estimate q_in from upslope (flux density) [mm/day]
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    double q_in = 0.0; 
+    
+    if( (isnan(Kb)==0) && isnan(td)==0 && (td > 0.0) ){ 
+      q_in = qin*(cellin/cellout)*Kb;
+    }
+
+    double sm = wn + R + q_in;
         
 
     // ~~~~~~~~~~~~~~~~~~~~~~~
@@ -388,22 +450,21 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 5.1 update runoff
     double ro  = ro_d + ro_h;
     
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 6. Calculate drainage vadose sone (unsaturated) (used only to compare against field measurements at low depths)
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // double subro = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dsin(slop));
     // sm -= subro;
     // double q_drain = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dcos(slop));
     // sm -=q_drain;
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7. Calculate initial transmitance To
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.1. assume hydraulic gradient as the slope
-     double hyd_grad = (dtan(slop));
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7. Calculate transmitance previous day To
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
        
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.3. Estimate Transmitance at the beggining of the day
+    // 7.2. Estimate Transmitance at the beggining of the day
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.2.1 calculate volumetric water content for the whole soil column
     //theta_i = (wn)/(depth*1000.0);
@@ -417,24 +478,31 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     }else if (wtd > depth){
         wtd = depth;
     }
-    //7.2.4 calculate pixel's cross sectional area for baseflow output
+    //7.2.4 calculate pixel's cross sectional area saturated part
     Acs_out = (depth - wtd) * sqrt(Ai);
     // transmitance over the unsaturated part of th profile [mm^2/h]
-    double To_uns = (Ksat*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    double To_uns = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    // adjust transmitance to m3/day
+    double Qo_uns = To_uns * ((24.0 * cellout * sqrt(Ai))/(1000.0));
+
     // adjust to flux density  and daily timestep [mm/day]
-    To_uns *= ((24.0 * sqrt(Ai))/(1000.0 * Ai));
+    To_uns *= ((24.0 * cellout * sqrt(Ai))/(1000.0 * Ai));
     // transmitance over the saturated part of the profile adjusted to flux density [mm/day]
-    double To_sat = Ksat_visc*24.0* (Acs_out/Ai);
+    double To_sat = Ksat_visc*24.0* (cellout*Acs_out/Ai);
+     // adjust transmitance to m3/day saturated part
+    double Qo_sat = Ksat_visc*24.0* (cellout*Acs_out);
     // total transmitance at initial soil moisture wn
-    double To = (To_sat+To_uns)*hyd_grad*8.0;
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    double To = (To_sat+To_uns)*hyd_grad;
+    // total Qo
+     double Qo = (Qo_sat+Qo_uns)*hyd_grad;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.3. Estimate Transmitance after recharge
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.2.1 calculate volumetric water content for the whole soil column
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.3.1 calculate volumetric water content for the whole soil column
     theta_i = (sm)/(depth*1000.0);
-    // 7.2.2 calculate matric potential (mmH2O)
+    // 7.3.2 calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
-    // 7.2.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
+    // 7.3.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
     wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
@@ -442,48 +510,42 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     }else if (wtd > depth){
         wtd = depth;
     }
-    //7.2.4 calculate pixel's cross sectional area for baseflow output
+    //7.3.4 calculate pixel's cross sectional area saturated part
     Acs_out = (depth - wtd) * sqrt(Ai);
-    // transmitance over the unsaturated part of th profile [mm^2/h]
-    double T_uns = (Ksat*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    // transmitance over the unsaturated part of the profile [mm^2/h]
+    double T_uns = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    // adjust transmitance to m3/day
+    double Q_uns = T_uns * ((24.0 * cellout * sqrt(Ai))/(1000.0));
     // adjust to flux density  and daily timestep [mm/day]
-    T_uns *= ((24.0 * sqrt(Ai))/(1000.0 * Ai));
+    T_uns *= ((24.0 * cellout*sqrt(Ai))/(1000.0 * Ai));
     // transmitance over the saturated part of the profile adjusted to flux density [mm/day]
-    double T_sat = Ksat_visc*24.0* (Acs_out/Ai);
+    double T_sat = Ksat_visc*24.0* (cellout*Acs_out/Ai);
+     // adjust transmitance to m3/day
+    double Q_sat = Ksat_visc*24.0* (cellout*Acs_out);
     // total transmitance at initial soil moisture wn
-    double T = (T_sat+T_uns)*hyd_grad*8.0;
+    double T = (T_sat+T_uns)*hyd_grad;
+     // total Q
+     double Q = (Q_sat+Q_uns)*hyd_grad;
     // failsafe for low water contents where there is no saturated section or big storms
     if (T  < 0.0 || isnan(T)==1){
         T  = 0.0;
     }
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.3. Estimate recession constant Kb
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double Kb = 1/(1-(R/(T/8.0)));
-    // experimental 
-    //double hyd_g = hyd_grad + sqrt(2.0*hyd_grad*thickness/sqrt(Ai))/sqrt(Ai);
-    //double t_alt = (depth * dsin(slop)) + (thickness * dcos(slop));        
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.4. Estimate time required to drain upslope recharge 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.5. Estimate time required to drain upslope recharge [days]
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    double t_drain = log((R*Au)/(Ai * To))/log(Kb);
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.3. Estimate q_in from upslope
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double q_in = 0.0; 
-    if( (R > 0.0) && isnan(t_drain)==0 && (t_drain > 0.0) ){
-        q_in = (R*Au )/(t_drain*Ai);
-    } else{
-        q_in = 0.0;
+    double t_drain = log(((Au * R * log(Kb))/(Q*1000.0))+1)/log(Kb);
+    t_drain += (td -1.0);
+    if(t_drain <= 0.0 || isnan(t_drain)==1){
+        t_drain = 0.0;
     }
-
     
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.6. Update soil moisture
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.7. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    sm += (q_in - T);
+    sm -= (T);
     
 
     // failsafe for low water contents or big storms
@@ -500,12 +562,15 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     dsm.sm = sm;
     dsm.ro = ro;
     dsm.swe = snow;
+    dsm.bflow = T;
+    dsm.tdr = t_drain;
     
    
 }
 
 void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
-                         double pn,smr &dsoil, double slop, double asp,double snow, double snowfall, vector <double> &soil_info) {
+                         double pn,smr &dsoil, double slop, double asp,double snow, double snowfall, vector <double> &soil_info,
+                         double qin, double td) {
     /* ***********************************************************************
     Name:     SPLASH.run_one_day
     Input:    - int, day of year (n)
@@ -524,6 +589,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     precip = pn;
 
+    //*********************************************************************** */
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // . Preprocess
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -541,18 +607,26 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double depth = soil_info[5];
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
-    //residual water content
+    //residual water content, test as WP?
     double RES = soil_info[1];
+    //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
     //Pixel Area
     double Ai = soil_info[9];
+    //neighbourhood  cells
+    double cellin = soil_info[10];
+    double cellout = soil_info[11];
     double theta_s = SAT/(depth *1000.0);
     double theta_r = RES/(depth *1000.0);
     double theta_fc = FC/(depth *1000.0);
     double theta_wp = WP/(depth *1000.0);
+    double theta_q0 = theta_wp + 0.01;
+    double theta_qs = theta_s - 0.02;
     double theta_i = (wn)/(depth*1000.0);
     double alph = 4.0 + 2.0*lambda;
+    // 7.1. assume hydraulic gradient as the slope
+    double hyd_grad = (dtan(slop));
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 00. Compute real FC
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -561,52 +635,12 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     
     double psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
     
-    // // 7.2.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
-    // double wtd = ((bub_press-psi_m)/1000.0);
-    // // failsafe for low water contents where there is no saturated section or big storms
-    // if (wtd < 0.0 || isnan(wtd)==1){
-    //     wtd = 0.0;
-    // }else if (wtd > depth){
-    //     wtd = depth;
-    // }
-    // double w_sat = theta_s * (depth-wtd) * 1000.0;
-    // //double theta_u = (w_uns)/((wtd)*1000.0);
-    // double theta_u = moist_surf(depth,10.0,bub_press,wn,SAT,RES,lambda);
-    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // // 1. Calculate evaporative supply rate (sw), mm/h
-    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // //calculate water in the first 50cm of depth
-    // double dept_rz = 0.0;
-
-    // if (depth > 0.5){
-    //     dept_rz = 0.5;
-    // }else{
-    //     dept_rz = depth;
-    // }
-    // double z_uns = dept_rz*1000.0;
-    
-    // double w_uns_z = (theta_r*z_uns) + (((psi_m+z_uns)*(theta_r-theta_s)*pow((bub_press/(psi_m+z_uns)),lambda))/(lambda-1));
-    // double w_uns_0 = (theta_r*0.0) + (((psi_m+0.0)*(theta_r-theta_s)*pow((bub_press/(psi_m+0.0)),lambda))/(lambda-1));
-	// double w_uns = w_uns_z-w_uns_0;
-    // double theta_uns = w_uns/( dept_rz*1000.0);
-    // psi_m = bub_press/pow((((theta_uns-theta_r)/(theta_s-theta_r))),(1/lambda));
-    // get wp and fc
-    // double wp_uns = theta_wp * z_uns;
-    // double fc_uns = theta_fc * z_uns;
-    // double sw = Global::Cw*((w_uns-wp_uns)/(fc_uns-wp_uns));
-
-    // if (sw < 0.0 || isnan(sw)==1) {
-    //      sw = 0.0;
-    //  } else if (sw > Global::Cw){
-    //      sw = Global::Cw;
-    //  }
-
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 1. Calculate evaporative supply rate (sw), mm/h Original
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // org splash
+    // // org splash
     double sw = Global::Cw*((wn-RES)/(Wmax-RES));
     //double sw = Global::Cw*((wn)/(SAT));
     if (sw < 0.0 || isnan(sw)==1) {
@@ -614,57 +648,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //First 10 cm
-    //double theta_aet = moist_surf(depth,10,bub_press,wn,SAT,RES,lambda);
-    //double sw = Global::Cw*((theta_aet-theta_r)/theta_fc);
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //Maatselar approach
-    // double theta_l = (theta_wp) + 0.9*(theta_s-theta_wp);
-    // double TH_l = (theta_l-theta_r)/(theta_s-theta_wp);
-    // double TH_w = (theta_wp-theta_r)/(theta_s-theta_wp);
-    // double TH = (theta_i-theta_r)/(theta_s-theta_wp);
-    // double f_aet = (pow(TH,alph)-pow(TH_w,alph)) /(pow(TH_l,alph)-pow(TH_w,alph));
-    //double sw = Global::Cw*(f_aet);
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //Feddes approach
-    // double h1 = 100.0;
-    // double h2 = -250.0;
-    // double h3 = -2000.0;
-    // double h4 = -150000.0;
-    // double sw = 0.0;
-    // if((psi_m >= h1)||(psi_m <= h4)){
-    //     sw = 0.0;
-    // }else if ((psi_m >= h2) && (psi_m < h1)) {
-    //     sw = (psi_m-h1)/(h2-h1);
-    // }else if ((psi_m > h3) && (psi_m <= h2 )) {
-    //     sw = 1.0;
-    // }else if ((psi_m > h4) && (psi_m <= h3 )) {
-    //     sw = (psi_m-h4)/(h3 - h4);
-    // }
-    // sw *= Global::Cw;
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //Campbel approach
-    // double awc = (wn-RES)/(Wmax-RES);
-    // double sw = 1.0 - pow((1.0 + 1.3 * awc ),(-1.0/lambda));
-    
-    // sw *= Global::Cw;
-    // if (sw < 0.0 || isnan(sw)==1) {
-    //      sw = 0.0;
-    //  } else if (sw > Global::Cw){
-    //      sw = Global::Cw;
-    //  }
-
-    //Bonan, 2014 gradient assuming 2mmol root conductance
-    // double psi_m_mpa = psi_m * 0.00000980665;
-    // double sw = ((psi_m_mpa+1.5)*2.0*(18.0*86400.0)/(1e6)); //* pow((theta_i/theta_s),(3+(2/lambda))) ;
-    //if (sw < 0.0 || isnan(sw)==1) {
-    //    sw = 0.0;
-    //}
+      
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 2. Accumulate snow (mm) first so feedback on albedo happens
@@ -711,7 +695,62 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double R = infi - dvap.aet;
     // 4.2 update soil moisture
     //double sm = wn + pn + dn.cond - dn.aet + snowmelt;
-    double sm = wn + R;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.4. Estimate recession constant Kb
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.4.1 estimate baseflow at ~wilting point
+    // 7.4.1.1 calculate matric potential (mmH2O)
+    double psi_q0 = bub_press/pow((((theta_q0-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // 7.4.1.2 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
+    double wtd_q0 = ((bub_press-psi_q0)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd_q0 < 0.0 || isnan(wtd_q0)==1){
+        wtd_q0 = 0.0;
+    }else if (wtd_q0 > depth){
+        wtd_q0 = depth;
+    }
+    //7.4.1.3 calculate pixel's cross sectional area for baseflow output
+    double Acs_out_q0 = (depth - wtd_q0) * sqrt(Ai);
+    //7.4.1.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
+    double T_q0 = hyd_grad* (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_q0), (3.0*lambda+1.0))-pow((bub_press/(psi_q0 +(wtd_q0*1000.0))), (3.0*lambda+1.0)) );
+    //7.4.1.5 adjust transmitance to m3/day
+    double Q_q0 = T_q0 * ((24.0 * sqrt(Ai))/(1000.0));
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 7.4.2 estimate baseflow at saturation Q_qs
+    // 7.4.2.1 calculate matric potential (mmH2O)
+    double psi_qs = bub_press/pow((((theta_qs-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // 7.4.2.2 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
+    double wtd_qs = ((bub_press-psi_qs)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd_qs < 0.0 || isnan(wtd_qs)==1){
+        wtd_qs = 0.0;
+    }else if (wtd_qs > depth){
+        wtd_qs = depth;
+    }
+    //7.4.2.3 calculate pixel's cross sectional area for baseflow output [m^2]
+    double Acs_out_qs = (depth - wtd_qs) * sqrt(Ai);
+    //7.4.2.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
+    double T_qs = hyd_grad * (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_qs), (3.0*lambda+1.0))-pow((bub_press/(psi_qs +(wtd_qs*1000.0))), (3.0*lambda+1.0)) );
+    //7.4.2.5 adjust transmitance to m3/day
+    double Q_qs = T_qs * ((24.0 * sqrt(Ai))/(1000.0));
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 7.4.2 compute Kb
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    double Kb = exp((Q_q0-Q_qs)/((SAT-WP)*(Ai/1000.0)));
+       
+   
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.6. Estimate q_in from upslope (flux density) [mm/day]
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    double q_in = 0.0; 
+    
+    if( (isnan(Kb)==0) && isnan(td)==0 && (td > 0.0) ){ 
+      q_in = qin*(cellin/cellout)*Kb;
+    }
+
+    // 4.2 update soil moisture
+    double sm = wn + R + q_in;
         
 
    // ~~~~~~~~~~~~~~~~~~~~~~~
@@ -751,22 +790,20 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 5.1 update runoff
     double ro  = ro_d + ro_h;
     
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 6. Calculate drainage vadose sone (unsaturated) (used only to compare against field measurements at low depths)
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // double subro = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dsin(slop));
     // sm -= subro;
     // double q_drain = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dcos(slop));
     // sm -=q_drain;
 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7. Calculate transmitance previous day To
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7. Calculate initial transmitance To
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.1. assume hydraulic gradient as the slope
-     double hyd_grad = (dtan(slop));
-       
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.3. Estimate Transmitance at the beggining of the day
+    // 7.2. Estimate Transmitance at the beggining of the day
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.2.1 calculate volumetric water content for the whole soil column
     //theta_i = (wn)/(depth*1000.0);
@@ -780,24 +817,31 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     }else if (wtd > depth){
         wtd = depth;
     }
-    //7.2.4 calculate pixel's cross sectional area for baseflow output
+    //7.2.4 calculate pixel's cross sectional area saturated part
     Acs_out = (depth - wtd) * sqrt(Ai);
     // transmitance over the unsaturated part of th profile [mm^2/h]
-    double To_uns = (Ksat*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    double To_uns = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    // adjust transmitance to m3/day
+    double Qo_uns = To_uns * ((24.0 * cellout * sqrt(Ai))/(1000.0));
+
     // adjust to flux density  and daily timestep [mm/day]
-    To_uns *= ((24.0 * sqrt(Ai))/(1000.0 * Ai));
+    To_uns *= ((24.0 * cellout * sqrt(Ai))/(1000.0 * Ai));
     // transmitance over the saturated part of the profile adjusted to flux density [mm/day]
-    double To_sat = Ksat_visc*24.0* (Acs_out/Ai);
+    double To_sat = Ksat_visc*24.0* (cellout*Acs_out/Ai);
+     // adjust transmitance to m3/day saturated part
+    double Qo_sat = Ksat_visc*24.0* (cellout*Acs_out);
     // total transmitance at initial soil moisture wn
-    double To = (To_sat+To_uns)*hyd_grad*8.0;
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    double To = (To_sat+To_uns)*hyd_grad;
+    // total Qo
+     double Qo = (Qo_sat+Qo_uns)*hyd_grad;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.3. Estimate Transmitance after recharge
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.2.1 calculate volumetric water content for the whole soil column
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.3.1 calculate volumetric water content for the whole soil column
     theta_i = (sm)/(depth*1000.0);
-    // 7.2.2 calculate matric potential (mmH2O)
+    // 7.3.2 calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
-    // 7.2.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
+    // 7.3.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
     wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
@@ -805,52 +849,46 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     }else if (wtd > depth){
         wtd = depth;
     }
-    //7.2.4 calculate pixel's cross sectional area for baseflow output
+    //7.3.4 calculate pixel's cross sectional area saturated part
     Acs_out = (depth - wtd) * sqrt(Ai);
-    // transmitance over the unsaturated part of th profile [mm^2/h]
-    double T_uns = (Ksat*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    // transmitance over the unsaturated part of the profile [mm^2/h]
+    double T_uns = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_m), (3.0*lambda+1.0))-pow((bub_press/(psi_m +(wtd*1000.0))), (3.0*lambda+1.0)) );
+    // adjust transmitance to m3/day
+    double Q_uns = T_uns * ((24.0 * cellout * sqrt(Ai))/(1000.0));
     // adjust to flux density  and daily timestep [mm/day]
-    T_uns *= ((24.0 * sqrt(Ai))/(1000.0 * Ai));
+    T_uns *= ((24.0 * cellout*sqrt(Ai))/(1000.0 * Ai));
     // transmitance over the saturated part of the profile adjusted to flux density [mm/day]
-    double T_sat = Ksat_visc*24.0* (Acs_out/Ai);
+    double T_sat = Ksat_visc*24.0* (cellout*Acs_out/Ai);
+     // adjust transmitance to m3/day
+    double Q_sat = Ksat_visc*24.0* (cellout*Acs_out);
     // total transmitance at initial soil moisture wn
-    double T = (T_sat+T_uns)*8.0*hyd_grad;
+    double T = (T_sat+T_uns)*hyd_grad;
+     // total Q
+     double Q = (Q_sat+Q_uns)*hyd_grad;
     // failsafe for low water contents where there is no saturated section or big storms
     if (T  < 0.0 || isnan(T)==1){
         T  = 0.0;
     }
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.3. Estimate recession constant Kb
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double Kb = 1/(1-(R/(T/8.0)));
-    // experimental 
-    //double hyd_g = hyd_grad + sqrt(2.0*hyd_grad*thickness/sqrt(Ai))/sqrt(Ai);
-    //double t_alt = (depth * dsin(slop)) + (thickness * dcos(slop));        
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.4. Estimate time required to drain upslope recharge 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.5. Estimate time required to drain upslope recharge [days]
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    double t_drain = log((R*Au)/(Ai * To))/log(Kb);
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.3. Estimate q_in from upslope
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double q_in = 0.0; 
-    if( (R > 0.0) && isnan(t_drain)==0 && (t_drain > 0.0) ){
-        q_in = (R *Au)/(t_drain*Ai);
-    } else{
-        q_in = 0.0;
+    double t_drain = log(((Au * R * log(Kb))/(Q*1000.0))+1)/log(Kb);
+    t_drain += (td -1.0);
+    if(t_drain <= 0.0 || isnan(t_drain)==1){
+        t_drain = 0.0;
     }
 
     
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.6. Update soil moisture
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 7.7. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    sm += (q_in - T);
+    sm -= (T);
     
 
     // failsafe for low water contents or big storms
-   
     if (sm > SAT){
         sm = SAT;
     } else if (sm < RES) {
@@ -864,7 +902,9 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     dsoil.ro = ro;
     dsoil.swe = snow;
     dsoil.bflow = T;
-   
+    dsoil.tdr = t_drain;
+
+       
 }
 
 // How to return Lists to R
@@ -882,39 +922,50 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     *********************************************************************** */
     double wn;  // previous day's soil moisture, mm
     double snow;  // previous day's swe, mm
+    double qin;  // previous day's drainage
+    double td;  // days left to drain the area upslope
     smr dsm;    // daily soil moisture, swe and runoff
     //residual water content
-    double RES = soil_info[7];
+    double RES = soil_info[1];
     // Prepare daily soil moisture vector
     //    int n = d.nlines();
     //    int y = d.get_year();
     wn_vec.resize(n, RES);
     vector <double> ro_vec(n);
 	vector <double> snow_vec(n,0.0);
+    vector <double> tdrain_vec(n,0.0);
+    vector <double> qin_prev_vec(n,0.0);
     // Run one year:
     for (int i=0; i<n; i++){
         // Get preceeding soil moisture status:
         if (i == 0){
             wn = wn_vec[n-1];
             snow = snow_vec[n-1];
+            qin = qin_prev_vec[n-1];
+            td = tdrain_vec[n-1];
         } else {
             wn = wn_vec[(i-1)];
             snow = snow_vec[(i-1)];
+            qin = qin_prev_vec[(i-1)];
+            td = tdrain_vec[(i-1)];
         }
 
         // Calculate soil moisture and runoff
         quick_run((i+1), y, wn, sw_in[i], tair[i],
-                  pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info);
+                  pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info, qin, td);
 
         wn_vec[i] = dsm.sm;
         ro_vec[i] = dsm.ro;
         snow_vec[i] = dsm.swe;
+        tdrain_vec[i] = dsm.tdr;
+        qin_prev_vec[i] = dsm.sqout;
+        
     }
 
     // Calculate change in starting soil moisture:
     double start_sm = wn_vec[0];
     quick_run(1, y, wn_vec[n-1], sw_in[0], tair[0],
-              pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info);
+              pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1]);
     double end_sm = dsm.sm;
     double diff_sm = (end_sm - start_sm);
     double diff_swe = (dsm.swe - snow_vec[0]);
@@ -933,24 +984,30 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
             if (i == 0){
                 wn = wn_vec[n-1];
                 snow = snow_vec[n-1];
+                qin = qin_prev_vec[n-1];
+                td = tdrain_vec[n-1];
             } else {
                 wn = wn_vec[(i-1)];
                 snow = snow_vec[(i-1)];
+                td = tdrain_vec[i] = dsm.tdr;
+                qin = qin_prev_vec[i] = dsm.sqout;
             }
 
             // Calculate soil moisture and runoff
             quick_run((i+1), y, wn, sw_in[i], tair[i],
-                      pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info);
+                      pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info,qin,td);
 
             wn_vec[i] = dsm.sm;
             ro_vec[i] = dsm.ro;
             snow_vec[i] = dsm.swe;
+            tdrain_vec[i] = dsm.tdr;
+            qin_prev_vec[i] = dsm.sqout;
         }
 
         // Calculate difference
         start_sm = wn_vec[0];
         quick_run(1, y, wn_vec[n-1], sw_in[0], tair[0],
-                  pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info);
+                  pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1]);
         end_sm = dsm.sm;
         diff_sm = (end_sm - start_sm);
         diff_swe = (dsm.swe - snow_vec[0]);
@@ -964,11 +1021,12 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     // Save initial soil moisture condition:
     dsoil.sm = wn_vec[n-1];
     
-    return List::create(Named("sm") = wn_vec, Named("snow") = snow_vec);
+    return List::create(Named("sm") = wn_vec, Named("snow") = snow_vec,Named("qin") = qin_prev_vec,Named("tdrain") = tdrain_vec, Named("ro") = ro_vec);
 }
 
 List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, vector <double> &wn_vec, 
-                            double slop, double asp, vector <double> &snow, vector <double> &snowfall, vector <double> &soil_info){
+                            double slop, double asp, vector <double> &snow, vector <double> &snowfall, vector <double> &soil_info,
+                            vector <double> &qin_vec,vector <double> &td_vec){
     /* ***********************************************************************
     Name:     SPLASH.spin_up
     Input:    DATA class (d)
@@ -978,6 +1036,8 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     *********************************************************************** */
     double wn;  // previous day's soil moisture, mm
     double swe;  // previous day's swe, mm
+    double qin;  // previous day's drainage
+    double td;  // days left to drain the area upslope
     smr dsoil;    // daily soil moisture and runoff
     
     // Prepare daily outputs vector
@@ -991,6 +1051,7 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     vector <double> snow_vec(n,0.0);
     vector <double> bflow_vec(n,0.0);
     vector <double> netr_vec(n,0.0);
+    vector <double> tdrain_vec(n,0.0);
     //vector <double> sm_vec(n,0.0);
     // Run one year:
     for (int i=0; i<n; i++){
@@ -998,13 +1059,17 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
         if (i == 0){
             wn = wn_vec[n_end-1];
             swe = snow[n_end-1];
+            qin = qin_vec[n_end-1];
+            td = td_vec[n_end-1];
         } else {
             wn = wn_vec[(i-1)];
             swe = snow[(i-1)];
+            qin = qin_vec[(i-1)];
+            td = td_vec[(i-1)];
         }
 
         // Calculate soil moisture and runoff
-        run_one_day((i+1), y, wn, sw_in[i], tair[i],pn[i], dsoil, slop, asp, swe, snowfall[i], soil_info);
+        run_one_day((i+1), y, wn, sw_in[i], tair[i],pn[i], dsoil, slop, asp, swe, snowfall[i], soil_info, qin, td);
 
         wn_vec[i] = dsoil.sm;
         ro_vec[i] = dsoil.ro;
@@ -1014,12 +1079,13 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
         aet_vec[i] =dvap.aet;
         cond_vec[i] =dvap.cond;
         netr_vec[i] =dvap.rn_d/1e6;
+        tdrain_vec[i] = dsoil.tdr;
     }
  
     dsoil.sm = wn_vec[n-1];
     
 return List::create(Named("wn") = wn_vec, Named("ro") = ro_vec, Named("pet") = pet_vec, Named("aet") = aet_vec, 
-                    Named("snow") = snow_vec, Named("cond") = cond_vec, Named("bflow") = bflow_vec,Named("netr") = netr_vec);
+                    Named("snow") = snow_vec, Named("cond") = cond_vec, Named("bflow") = bflow_vec,Named("netr") = netr_vec,Named("tdrain") = tdrain_vec);
 }
 
 

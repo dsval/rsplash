@@ -32,7 +32,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 		if (length(y)==1){
 			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
 			
-			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution)
+			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain)
 			# result<-xts(result,ztime)
 			result<-do.call(cbind,result)
 		}
@@ -47,16 +47,16 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
 			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
 			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:ny[1]], tc[1:ny[1]],  pn[1:ny[1]],initial$sm, y[1], initial$snow,
-				soil_data,Au,resolution)
+				soil_data,Au,resolution,initial$qin,initial$tdrain)
 			
 			for (i in 2:length(y)){
 				
 				stidx<-i-1
 				# correct for leap years	
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[stidx]:end[i]], tc[start[stidx]:end[i]], pn[start[stidx]:end[i]],
-					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution)
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$bflow,result[[stidx]]$tdrain)
 			}
-			result<-lapply(result,FUN=as.data.frame)
+			result<-lapply(result,FUN=base::as.data.frame)
 			result<-do.call(rbind,result)
 			
 		}
@@ -349,7 +349,9 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	RES<-soil_info$RES*(1-soil_data[4]/100)*depth*1000
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
-	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2)
+	ncellin<-2
+	ncellout<-1
+	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2,ncellin,ncellout)
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence
 	p_snow<-snowfall_prob(tc,lat,elev)
@@ -364,11 +366,12 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	my_splash = new(SPLASH, lat, elev)
 	# run spin up
 	result<-my_splash$spin_up(as.integer(ny), as.integer(y), as.numeric(sw_in), as.numeric(tc),as.numeric(pn),slop,asp,as.numeric(snowfall),soil_info)
+	# result<-my_splash$spin_up(as.integer(ny), as.integer(y), as.numeric(sw_av), as.numeric(tc_av),as.numeric(pn_av),slop,asp,as.numeric(snowfall),soil_info)
 	
 	return(result)
 }
 
-run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,Au,resolution) {
+run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,Au,resolution,qin,td) {
 	# ************************************************************************
 	# Name:     run_one_year
 	# Inputs:   - double, latitude, deg (lat)
@@ -416,7 +419,9 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	RES<-soil_info$RES*(1-soil_data[4]/100)*depth*1000
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
-	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2)
+	ncellin<-2
+	ncellout<-1
+	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2,ncellin,ncellout)
 	
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence
@@ -437,7 +442,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	my_splash = new(SPLASH, lat, elev)
 	# run spin up
 	
-	daily_totals<-my_splash$run_one_year(as.integer(ny), as.integer(y),as.numeric(sw_in),as.numeric(tc),as.numeric(pn),as.numeric(wn),slop,asp,as.numeric(snow),as.numeric(snowfall),soil_info)
+	daily_totals<-my_splash$run_one_year(as.integer(ny), as.integer(y),as.numeric(sw_in),as.numeric(tc),as.numeric(pn),as.numeric(wn),slop,asp,as.numeric(snow),as.numeric(snowfall),soil_info,as.numeric(qin),as.numeric(td))
 	return(daily_totals)
 }
 

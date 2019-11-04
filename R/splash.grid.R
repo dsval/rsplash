@@ -20,7 +20,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	# require(xts)
 	# require(doSNOW)
 	# require(zoo)
-	# rasterOptions(maxmemory=3e7, tmptime = 24, chunksize = 1e7,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
+	rasterOptions(tmptime = 168,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
 	
 	###########################################################################
 	# 01. Calculate spatial distributed variables
@@ -30,7 +30,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
 	# 1.1 calculate upslope area in m2, *all the raster will be saved to the disk by default
 	if (ncell(elev)>1e7|resolution>=10000){
-		Au<-upslope_areav2(elev)
+		Au<-upslope_areav2(elev, ...)
 	}else{
 		Au<-upslope_area(elev)
 	}
@@ -498,7 +498,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	# baseflow
 	bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
 	extent(bflow)<-extent(elev)
-	# make bricks, raster stacks are not working, result should be as stack, otherwise merging everithing wont work
+	# make bricks, raster stacks are not working, result should be as stack, otherwise merging everything wont work
 	gc()
 	setwd(outdir)
 	if(inmem){
