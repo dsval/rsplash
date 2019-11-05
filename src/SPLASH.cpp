@@ -406,8 +406,10 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     double q_in = 0.0; 
     
-    if( (isnan(Kb)==0) && isnan(td)==0 && (td > 0.0) ){ 
-      q_in = qin*(cellin/cellout)*Kb;
+    q_in = qin*(cellin/cellout)*Kb;
+
+    if( (isnan(q_in)==1) ||  (q_in < 0.0) ){ 
+      q_in = 0.0;
     }
 
     double sm = wn + R + q_in;
@@ -536,8 +538,14 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     double t_drain = log(((Au * R * log(Kb))/(Q*1000.0))+1)/log(Kb);
-    t_drain += (td -1.0);
+    
     if(t_drain <= 0.0 || isnan(t_drain)==1){
+        t_drain = 0.0;
+    }
+
+    t_drain += (td -1.0);
+
+    if(t_drain < 0.0){
         t_drain = 0.0;
     }
     
@@ -745,8 +753,10 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     double q_in = 0.0; 
     
-    if( (isnan(Kb)==0) && isnan(td)==0 && (td > 0.0) ){ 
-      q_in = qin*(cellin/cellout)*Kb;
+    q_in = qin*(cellin/cellout)*Kb;
+
+    if( (isnan(q_in)==1) ||  (q_in < 0.0) ){ 
+      q_in = 0.0;
     }
 
     // 4.2 update soil moisture
@@ -875,11 +885,16 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     double t_drain = log(((Au * R * log(Kb))/(Q*1000.0))+1)/log(Kb);
-    t_drain += (td -1.0);
+    
     if(t_drain <= 0.0 || isnan(t_drain)==1){
         t_drain = 0.0;
     }
 
+    t_drain += (td -1.0);
+
+    if(t_drain < 0.0){
+        t_drain = 0.0;
+    }
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.7. Update soil moisture
@@ -1043,8 +1058,7 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     // Prepare daily outputs vector
     int n_end = wn_vec.size();
     //    int y = d.get_year();
-    
-	vector <double> pet_vec(n,0.0);
+    vector <double> pet_vec(n,0.0);
 	vector <double> aet_vec(n,0.0);
     vector <double> cond_vec(n,0.0);
     vector <double> ro_vec(n,0.0);
@@ -1063,9 +1077,9 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
             td = td_vec[n_end-1];
         } else {
             wn = wn_vec[(i-1)];
-            swe = snow[(i-1)];
-            qin = qin_vec[(i-1)];
-            td = td_vec[(i-1)];
+            swe = snow_vec[(i-1)];
+            qin = bflow_vec[(i-1)];
+            td = tdrain_vec[(i-1)];
         }
 
         // Calculate soil moisture and runoff

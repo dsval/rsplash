@@ -14,7 +14,7 @@
 #' splash.grid()
 upslope_area<-function(dem){
 	# require(raster)
-	setwd(tmpdir)
+	# setwd(tmpdir)
 	# require(topmodel)
 	# rasterOptions(maxmemory=3e7, timer=FALSE, tmptime = 24, chunksize = 3e7,todisk=FALSE, overwrite=TRUE)
 	resolution<-sqrt(cellStats(area(dem), stat='mean', na.rm=TRUE))*1000
@@ -31,19 +31,19 @@ upslope_area<-function(dem){
 	crs(areacatch)<-crs(elev)
 	areacatch<-writeRaster(areacatch,"areacatch.grd",overwrite=TRUE)
 	flowdir<-terrain(elev,opt='flowdir')
-	ncellin<-ncellflow(flowdir,inout='in',met='top')
-	ncellout<-ncellflow(flowdir,inout='out',met='top')
+	ncellin<-ncellflow(flowdir,inout='in',met='top',filename="ncellin.grd",overwrite=TRUE)
+	ncellout<-ncellflow(flowdir,inout='out',met='top',filename="ncellout.grd",overwrite=TRUE)
 	rm(elev)
 	gc()
 	# return(areacatch)
-	return(list(ups_area=areacatch,ncellin=ncellin,ncellout=ncellout))
+	return(stack(areacatch,ncellin,ncellout))
 	
 }
 upslope_areav2<-function(dem,...){
 	# returns upslope area in square meters
 	# require(raster)
 	# Set working directory to your location
-	setwd(tmpdir)
+	# setwd(tmpdir)
 	writeRaster(dem,"rawdem.tif",format="GTiff", overwrite=TRUE)
 	
 	if(... == 'MPI'){
@@ -69,15 +69,15 @@ upslope_areav2<-function(dem,...){
 	flowdir<-raster("dem_p.tif")
 	area_p_cell<-area(ups_ncell)
 	ups_area<-overlay(ups_ncell, area_p_cell, fun=function(x,y){(x*y*1e6)},filename="areacatch.grd",overwrite=TRUE)
-	ncellin<-ncellflow(flowdir,inout='in',met='tau')
-	ncellout<-ncellflow(flowdir,inout='out',met='tau')
-	return(list(ups_area=ups_area,ncellin=ncellin,ncellout=ncellout))
+	ncellin<-ncellflow(flowdir,inout='in',met='tau',filename="ncellin.grd",overwrite=TRUE)
+	ncellout<-ncellflow(flowdir,inout='out',met='tau',filename="ncellout.grd",overwrite=TRUE)
+	return(stack(ups_area,ncellin,ncellout))
 	# return(ups_area)
 	
 }
 
 
-ncellflow<-function(flowdir,inout='in',met='top'){
+ncellflow<-function(flowdir,inout='in',met='top', ...){
 	if(inout=='in'&& met=='top'){
 		flow<-matrix(c(2,1,128,4,0,64,8,16,32), nrow=3)
 	}else if (inout=='out'&& met=='top'){
@@ -98,7 +98,7 @@ ncellflow<-function(flowdir,inout='in',met='top'){
 		nmatch
 	}
 	
-	r <- focal(flowdir, w=matrix(1,nrow=3,ncol=3), fun=compare)
+	r <- focal(flowdir, w=matrix(1,nrow=3,ncol=3), fun=compare, ...)
 	r
 	
 }

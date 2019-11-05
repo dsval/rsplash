@@ -349,8 +349,14 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	RES<-soil_info$RES*(1-soil_data[4]/100)*depth*1000
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
-	ncellin<-2
-	ncellout<-1
+	if(length(Au)==1){
+		ncellin<-2
+		ncellout<-1
+	}else{
+		ncellin<-Au[2]
+		ncellout<-Au[3]
+	}
+	
 	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2,ncellin,ncellout)
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence
@@ -419,8 +425,13 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	RES<-soil_info$RES*(1-soil_data[4]/100)*depth*1000
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
-	ncellin<-2
-	ncellout<-1
+	if(length(Au)==1){
+		ncellin<-2
+		ncellout<-1
+	}else{
+		ncellin<-Au[2]
+		ncellout<-Au[3]
+	}
 	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2,ncellin,ncellout)
 	
 	# define snowfall occurrence:

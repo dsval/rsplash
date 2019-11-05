@@ -14,7 +14,7 @@
 #' @export
 #' @examples
 #' splash.grid()
-splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=7,output.mode="monthly",inmem=FALSE), ...){
+splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=4,output.mode="monthly",inmem=FALSE), ...){
 	#### IMPORT SOURCES ##########################################################
 	# require(raster)
 	# require(xts)
@@ -26,11 +26,12 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	# 01. Calculate spatial distributed variables
 	###########################################################################
 	tmpdir<-dirname(rasterTmpFile())
+	setwd(tmpdir)
 	# get resolution in m2
 	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
 	# 1.1 calculate upslope area in m2, *all the raster will be saved to the disk by default
 	if (ncell(elev)>1e7|resolution>=10000){
-		Au<-upslope_areav2(elev, ...)
+		Au<-upslope_areav2(elev,...)
 	}else{
 		Au<-upslope_area(elev)
 	}
@@ -66,10 +67,10 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			# 3.1. Equilibrate
 			###########################################################################
 			cat("reaching steady state","\n")
-			beginCluster(sim.control$ncores, ...)
+			beginCluster(sim.control$ncores)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
-			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
+			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq,sim.control$inmem,outdir=tmpdir)
 			# endCluster()
 			gc()
 		}
@@ -83,7 +84,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result[[1]]<-run_one_year.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]], eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],
-				resolution,Au,sim.control$inmem,outdir=tmpdir)
+				resolution,Au,eq$bfloweq,eq$tdraineq,sim.control$inmem,outdir=tmpdir)
 			rm(eq)
 			gc()
 			###########################################################################
@@ -96,7 +97,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				
 				stidx<-i-1
 				result[[i]]<-run_one_year.grid(sw_in[[start[stidx]:end[i]]], tc[[start[stidx]:end[i]]], pn[[start[stidx]:end[i]]],result[[stidx]]$wn,
-					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,sim.control$inmem,outdir=tmpdir)
+					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$bflow,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
 				setTxtProgressBar(pb,i)				
 			}
 			close(pb)
@@ -133,7 +134,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result[[1]]<-run_one_year.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]], eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],
-				resolution,Au,sim.control$inmem,outdir=tmpdir)
+				resolution,Au,eq$bfloweq,eq$tdraineq,sim.control$inmem,outdir=tmpdir)
 			# endCluster()
 			gc()
 			# beginCluster(sim.control$ncores)
@@ -149,7 +150,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				stidx<-i-1
 				
 				result[[i]]<-run_one_year.grid(sw_in[[start[i]:end[i]]], tc[[start[i]:end[i]]], pn[[start[i]:end[i]]],result[[stidx]]$wn,
-					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,sim.control$inmem,outdir=tmpdir)
+					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$bflow,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
 				
 				setTxtProgressBar(pb,i)
 				
@@ -185,6 +186,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		result.all$cond@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$cond)}))
 		result.all$bflow<-result[[1]]$bflow
 		result.all$bflow@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$bflow)}))
+		result.all$tdrain<-result[[1]]$tdrain
+		result.all$tdrain@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$tdrain)}))
 		
 		rm(result)
 		gc()
@@ -265,6 +268,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				longname='monthly condensation'
 			}else if(varnam=='bflow'){
 				longname='monthly baseflow'
+			}else if(varnam=='tdrain'){
+				longname='days to drain'
 			}
 			if(!inmem){
 				out<-writeStart(out,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".",varnam,".","nc"),format="CDF",overwrite=TRUE,varname=varnam, varunit="mm",
@@ -333,6 +338,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		result.all[[5]]<-aggregate_par(result.all[[5]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='snow',outdir=outdir)
 		result.all[[6]]<-aggregate_par(result.all[[6]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='cond',outdir=outdir)
 		result.all[[7]]<-aggregate_par(result.all[[7]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='bflow',outdir=outdir)
+		result.all[[8]]<-aggregate_par(result.all[[8]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='tdrain',outdir=outdir)
 		endCluster()
 		
 	}else{
@@ -350,6 +356,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			varunit="mm/day", longname="daily condensation water", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
 		result.all$bflow<-writeRaster(result.all$bflow,paste0(outdir,"/",y[1],"_",y[length(y)],".","bflow",".","nc"),format="CDF",overwrite=TRUE,varname="bflow", 
 			varunit="mm/day", longname="daily baseflow", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
+		result.all$tdrain<-writeRaster(result.all$tdrain,paste0(outdir,"/",y[1],"_",y[length(y)],".","tdrain",".","nc"),format="CDF",overwrite=TRUE,varname="tdrain", 
+			varunit="day", longname="days to drain", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
 		
 	}
 	
@@ -367,7 +375,11 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	wneq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
 	extent(wneq)<-extent(elev)
 	snoweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(snoweq)<-extent(elev)	
+	extent(snoweq)<-extent(elev)
+	bfloweq<-snoweq
+	tdraineq<-snoweq
+		
+				
 	setwd(outdir)
 	if(inmem){
 		sw_in<-readAll(sw_in)
@@ -402,7 +414,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		sloprow<-getValues(terraines[[1]],bs$row[i], bs$nrows[i])
 		asprow<-getValues(terraines[[2]],bs$row[i], bs$nrows[i])
 		soilrow<-split(getValues(soil,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		Aurow<-getValues(Au,bs$row[i], bs$nrows[i])
+		Aurow<-split(getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
 		# do calculations
 		wneqmat<-mapply(rspin_up,latrow,elevrow,swrow,tcrow,pnrow,sloprow,asprow,y,soilrow,Aurow,resolution)
 		return(wneqmat)
@@ -419,9 +431,13 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	if(!inmem){
 		wneq<-writeStart(wneq,filename="wneq.grd",overwrite=TRUE)
 		snoweq<-writeStart(snoweq,filename="snoweq.grd",overwrite=TRUE)
+		bfloweq<-writeStart(bfloweq,filename="bfloweq.grd",overwrite=TRUE)
+		tdraineq<-writeStart(tdraineq,filename="tdraineq.grd",overwrite=TRUE)
 	}else {
 		matwneq <- matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
 		matswoeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
+		matbfeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
+		mattdeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
 		endind<-cumsum(bs$nrows*snoweq@ncols)
 		startind<-c(1,endind+1)    
 	}
@@ -441,10 +457,14 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		if (!inmem) {
 			wneq <- writeValues(wneq,do.call(rbind,d$value$value[1,]), bs$row[b])
 			snoweq <- writeValues(snoweq, do.call(rbind,d$value$value[2,]), bs$row[b])
+			bfloweq <- writeValues(bfloweq, do.call(rbind,d$value$value[3,]), bs$row[b])
+			tdraineq <- writeValues(tdraineq, do.call(rbind,d$value$value[4,]), bs$row[b])
 		} else {
 			                
 			matwneq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[1,])
 			matswoeq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[2,])
+			matbfeq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[3,])
+			mattdeq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[4,])
 		}
 				
 		# need to send more data?
@@ -461,17 +481,21 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	if (!inmem) {
 		wneq <- writeStop(wneq)
 		snoweq <- writeStop(snoweq)
+		bfloweq <- writeStop(bfloweq)
+		tdraineq <- writeStop(tdraineq)
 	} else {
 		wneq<-setValues(wneq,matwneq)
 		snoweq<-setValues(snoweq,matswoeq)
+		bfloweq<-setValues(bfloweq,matbfeq)
+		tdraineq<-setValues(mattdeq,matswoeq)
 	}
 	close(pb)
 	gc()
-	return(list(wneq=wneq,snoweq=snoweq))
+	return(list(wneq=wneq,snoweq=snoweq,bfloweq=bfloweq,tdraineq=tdraineq))
 }
 
 
-run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, resolution,  Au,inmem=FALSE,outdir=getwd()){
+run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, resolution,  Au,bf_in, tdin,inmem=FALSE,outdir=getwd()){
 	###############################################################################################
 	# 00. create array for results, fluxes: mm/day, storages (wn, snow): mm
 	###############################################################################################
@@ -498,6 +522,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	# baseflow
 	bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
 	extent(bflow)<-extent(elev)
+	tdrain<-bflow
 	# make bricks, raster stacks are not working, result should be as stack, otherwise merging everything wont work
 	gc()
 	setwd(outdir)
@@ -537,9 +562,11 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		sloprow<-getValues(terraines[[1]],bs$row[i], bs$nrows[i])
 		asprow<-getValues(terraines[[2]],bs$row[i], bs$nrows[i])
 		soilrow<-split(getValues(soil,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		Aurow<-getValues(Au,bs$row[i], bs$nrows[i])
+		Aurow<-split(getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		qinrow<-split(getValues(bf_in,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		tdrow<-split(getValues(tdin,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
 		# do calculations
-		yearlist<-mapply(run_one_year,latrow,elevrow,sloprow,asprow,swrow,tcrow,pnrow,wnrow,y,snowrow,soilrow,Aurow,resolution)
+		yearlist<-mapply(run_one_year,latrow,elevrow,sloprow,asprow,swrow,tcrow,pnrow,wnrow,y,snowrow,soilrow,Aurow,resolution,qinrow,tdrow)
 				
 		return(yearlist)
 	}
@@ -560,6 +587,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		swe<-writeStart(swe,filename=paste0("swe","_",y,".grd"),overwrite=TRUE)
 		cond<-writeStart(cond,filename=paste0("cond","_",y,".grd"),overwrite=TRUE)
 		bflow<-writeStart(bflow,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
+		tdrain<-writeStart(tdrain,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
 		
 	}else {
 		matsm <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
@@ -569,6 +597,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		matswe<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		matcond <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		matbflow<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
+		mattdrain<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		endind<-cumsum(bs$nrows*sm@ncols)
 		startind<-c(1,endind+1)    
 	}
@@ -593,6 +622,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 			swe <- writeValues(swe, do.call(rbind,d$value$value[5,]), bs$row[b])
 			cond <- writeValues(cond, do.call(rbind,d$value$value[6,]), bs$row[b])
 			bflow <- writeValues(bflow, do.call(rbind,d$value$value[7,]), bs$row[b])
+			tdrain <- writeValues(tdrain, do.call(rbind,d$value$value[9,]), bs$row[b])
 			
 		} else {
 			
@@ -603,6 +633,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 			matswe[startind[b]:endind[b],] <- do.call(rbind,d$value$value[5,])
 			matcond[startind[b]:endind[b],] <- do.call(rbind,d$value$value[6,])
 			matbflow[startind[b]:endind[b],] <- do.call(rbind,d$value$value[7,])
+			mattdrain[startind[b]:endind[b],] <- do.call(rbind,d$value$value[9,])
 		}
 		
 		# need to send more data?
@@ -623,7 +654,8 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		aet <- writeStop(aet)
 		swe <- writeStop(swe)
 		cond <- writeStop(cond)
-		bflow <- writeStop(bflow)	
+		bflow <- writeStop(bflow)
+		tdrain <- writeStop(tdrain)	
 	} else {
 		# soil water content
 		sm<-setValues(sm,matsm)
@@ -639,10 +671,12 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		cond<-setValues(cond,matcond)
 		# baseflow
 		bflow<-setValues(bflow,matbflow)
+		# time drainage
+		tdrain<-setValues(bflow,mattdrain)
 		
 	}
 	close(pb)
 	gc()
-	return(list(wn=stack(sm),ro=stack(ro),pet=stack(pet),aet=stack(aet),snow=stack(swe),cond=stack(cond),bflow=stack(bflow)))
+	return(list(wn=stack(sm),ro=stack(ro),pet=stack(pet),aet=stack(aet),snow=stack(swe),cond=stack(cond),bflow=stack(bflow),tdrain=stack(tdrain)))
 		
 }
