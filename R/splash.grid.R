@@ -14,7 +14,7 @@
 #' @export
 #' @examples
 #' splash.grid()
-splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=4,output.mode="monthly",inmem=FALSE), ...){
+splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=4,output.mode="monthly",inmem=FALSE), type='SOCK'){
 	#### IMPORT SOURCES ##########################################################
 	# require(raster)
 	# require(xts)
@@ -30,23 +30,12 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	# get resolution in m2
 	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
 	# 1.1 calculate upslope area in m2, *all the raster will be saved to the disk by default
-	if(... =='MPI'){
-		
-		if (ncell(elev)>1e7|resolution>=10000){
-			Au<-upslope_areav2(elev, ...)
-		}else{
-			Au<-upslope_area(elev)
-		}
+	if (ncell(elev)>1e7|resolution>=10000){
+		Au<-upslope_areav2(elev, type)
 	}else{
-		if (ncell(elev)>1e7|resolution>=10000){
-			Au<-upslope_areav2(elev, 'SOCK')
-		}else{
-			Au<-upslope_area(elev)
-		}
+		Au<-upslope_area(elev)
 	}
-	
-	
-	
+		
 	# 1.2 get latitudes
 	lat<-elev*0
 	lat.data<-rasterToPoints(elev)
@@ -82,6 +71,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq,sim.control$inmem,outdir=tmpdir)
+			result.all$tdrain<-NULL
 			# endCluster()
 			gc()
 		}
@@ -90,7 +80,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			end<-cumsum(ny)
 			start<-end+1
 			result<-list()
-			beginCluster(sim.control$ncores, ...)
+			beginCluster(sim.control$ncores, type=type)
 			cat("reaching steady state","\n")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
@@ -129,10 +119,11 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		
 		if (length(y)==1){
 			cat("reaching steady state","\n")
-			beginCluster(sim.control$ncores, ...)
+			beginCluster(sim.control$ncores, type=type)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq, sim.control$inmem,outdir=tmpdir)
+			result.all$tdrain<-NULL
 			# endCluster()
 		}
 		else if(length(y)>1){
@@ -341,14 +332,14 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 		# 06. Do the aggregations one by one, using lapply causes a weird memory leak
 		###############################################################################################
 		
-		result.all[[1]]<-aggregate_par(result.all[[1]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='wn',outdir=outdir)
-		result.all[[2]]<-aggregate_par(result.all[[2]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='ro',outdir=outdir)
-		result.all[[3]]<-aggregate_par(result.all[[3]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='pet',outdir=outdir)
+		result.all$wn<-aggregate_par(result.all$wn,func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='wn',outdir=outdir)
+		result.all$ro<-aggregate_par(result.all$ro,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='ro',outdir=outdir)
+		result.all$pet<-aggregate_par(result.all$pet,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='pet',outdir=outdir)
 		gc()
-		result.all[[4]]<-aggregate_par(result.all[[4]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='aet',outdir=outdir)
-		result.all[[5]]<-aggregate_par(result.all[[5]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='snow',outdir=outdir)
+		result.all$aet<-aggregate_par(result.all$aet,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='aet',outdir=outdir)
+		result.all$snow<-aggregate_par(result.all$snow,func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='snow',outdir=outdir)
 		# result.all[[6]]<-aggregate_par(result.all[[6]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='cond',outdir=outdir)
-		result.all[[6]]<-aggregate_par(result.all[[7]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='bflow',outdir=outdir)
+		result.all$bflow<-aggregate_par(result.all$bflow,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='bflow',outdir=outdir)
 		# result.all[[8]]<-aggregate_par(result.all[[8]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='tdrain',outdir=outdir)
 		endCluster()
 		
