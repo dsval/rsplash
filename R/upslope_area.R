@@ -95,6 +95,7 @@ ncellflow<-function(flowdir,inout='in',met='top', ...){
 			comp<-x[!is.na(x)]==flow[!is.na(x)]
 			nmatch<-length(comp[comp==TRUE])
 		}
+		nmatch[nmatch==0]<-1
 		nmatch
 	}
 	
