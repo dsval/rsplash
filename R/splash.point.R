@@ -24,7 +24,9 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 	ztime<-time(pn)
 	# time frequency
 	time.freq<-abs(as.numeric(ztime[1]-ztime[2], units = "days"))
-	
+	###########################################################################
+	# 02. Start the calculations for daily inputs
+	###########################################################################
 	
 	
 	if (time.freq<2){		
@@ -60,12 +62,48 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			result<-do.call(rbind,result)
 			
 		}
-		
+		result<-xts(result,ztime)
 	}
-	# order results as time series
+	###########################################################################
+	# 03. Start the calculations for Monthly inputs
+	###########################################################################
+	if (time.freq>20){		
+		ztime.days<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="day")
+		if (length(y)==1){
+			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
+			
+			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain)
+			# result<-xts(result,ztime)
+			result<-do.call(cbind,result)
+		}
+		else if(length(y)>1){
+			nm <- rep(12,length(y))
+			end<-cumsum(nm)
+			start<-end-11
+			result<-list()
+			sw_av<-tapply(sw_in,format(time(sw_in),"%m"),mean, na.rm=TRUE)
+			tc_av<-tapply(tc,format(time(sw_in),"%m"),mean, na.rm=TRUE)
+			pn_av<-tapply(pn,format(time(sw_in),"%m"),mean, na.rm=TRUE)
+			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
+			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
+			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:end[1]], tc[1:end[1]],  pn[1:end[1]],initial$sm, y[1], initial$snow,
+				soil_data,Au,resolution,initial$qin,initial$tdrain)
+			
+			for (i in 2:length(y)){
+				
+				stidx<-i-1
+				# correct for leap years	
+				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[i]:end[i]], tc[start[i]:end[i]], pn[start[i]:end[i]],
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$bflow,result[[stidx]]$tdrain)
+			}
+			result<-lapply(result,FUN=base::as.data.frame)
+			result<-do.call(rbind,result)
+			
+		}
+		result<-xts(result,ztime.days)
+	}
 	
-	
-	result<-xts(result,ztime)		
+			
 	return(result)
 }
 
@@ -357,7 +395,7 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 		ncellout<-Au[3]
 	}
 	
-	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2,ncellin,ncellout)
+	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence
 	p_snow<-snowfall_prob(tc,lat,elev)
@@ -432,7 +470,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 		ncellin<-Au[2]
 		ncellout<-Au[3]
 	}
-	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au,resolution^2,ncellin,ncellout)
+	soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
 	
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence

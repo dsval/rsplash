@@ -14,7 +14,7 @@
 #' @export
 #' @examples
 #' splash.grid()
-splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=4,output.mode="monthly",inmem=FALSE), type='SOCK'){
+splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=4,output.mode="daily",inmem=FALSE), type='SOCK'){
 	#### IMPORT SOURCES ##########################################################
 	# require(raster)
 	# require(xts)
@@ -67,7 +67,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			# 3.1. Equilibrate
 			###########################################################################
 			cat("reaching steady state","\n")
-			beginCluster(sim.control$ncores)
+			beginCluster(sim.control$ncores,type=type)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq,sim.control$inmem,outdir=tmpdir)
@@ -131,7 +131,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			end<-cumsum(nm)
 			start<-end-11
 			result<-list()
-			beginCluster(sim.control$ncores, ...)
+			beginCluster(sim.control$ncores, type=type)
 			cat("reaching steady state","\n")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
@@ -378,8 +378,13 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	extent(wneq)<-extent(elev)
 	snoweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
 	extent(snoweq)<-extent(elev)
-	bfloweq<-snoweq
-	tdraineq<-snoweq
+	bfloweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+	extent(bfloweq)<-extent(elev)
+	tdraineq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+	extent(tdraineq)<-extent(elev)
+	# runoff
+	ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+	extent(ro)<-extent(elev)
 		
 				
 	setwd(outdir)
@@ -435,6 +440,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		snoweq<-writeStart(snoweq,filename="snoweq.grd",overwrite=TRUE)
 		bfloweq<-writeStart(bfloweq,filename="bfloweq.grd",overwrite=TRUE)
 		tdraineq<-writeStart(tdraineq,filename="tdraineq.grd",overwrite=TRUE)
+		ro<-writeStart(ro,filename="roeq.grd",overwrite=TRUE)
 	}else {
 		matwneq <- matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
 		matswoeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
@@ -461,6 +467,8 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 			snoweq <- writeValues(snoweq, do.call(rbind,d$value$value[2,]), bs$row[b])
 			bfloweq <- writeValues(bfloweq, do.call(rbind,d$value$value[3,]), bs$row[b])
 			tdraineq <- writeValues(tdraineq, do.call(rbind,d$value$value[4,]), bs$row[b])
+			ro <- writeValues(ro, do.call(rbind,d$value$value[5,]), bs$row[b])
+			
 		} else {
 			                
 			matwneq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[1,])
@@ -485,6 +493,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		snoweq <- writeStop(snoweq)
 		bfloweq <- writeStop(bfloweq)
 		tdraineq <- writeStop(tdraineq)
+		ro <- writeStop(ro)
 	} else {
 		wneq<-setValues(wneq,matwneq)
 		snoweq<-setValues(snoweq,matswoeq)
@@ -493,7 +502,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	}
 	close(pb)
 	gc()
-	return(list(wneq=wneq,snoweq=snoweq,bfloweq=bfloweq,tdraineq=tdraineq))
+	return(list(wneq=wneq,snoweq=snoweq,bfloweq=bfloweq,tdraineq=tdraineq,ro=ro))
 }
 
 
