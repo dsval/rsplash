@@ -98,7 +98,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				
 				stidx<-i-1
 				result[[i]]<-run_one_year.grid(sw_in[[start[stidx]:end[i]]], tc[[start[stidx]:end[i]]], pn[[start[stidx]:end[i]]],result[[stidx]]$wn,
-					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$bflow,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
+					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$q_in,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
 				setTxtProgressBar(pb,i)				
 			}
 			close(pb)
@@ -152,7 +152,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 				stidx<-i-1
 				
 				result[[i]]<-run_one_year.grid(sw_in[[start[i]:end[i]]], tc[[start[i]:end[i]]], pn[[start[i]:end[i]]],result[[stidx]]$wn,
-					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$bflow,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
+					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$q_in,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
 				
 				setTxtProgressBar(pb,i)
 				
@@ -534,6 +534,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
 	extent(bflow)<-extent(elev)
 	tdrain<-bflow
+	q_in<-bflow
 	# make bricks, raster stacks are not working, result should be as stack, otherwise merging everything wont work
 	gc()
 	setwd(outdir)
@@ -548,6 +549,8 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		terraines<-readAll(terraines)
 		soil<-readAll(soil)
 		Au<-readAll(Au)
+		bf_in<-readAll(bf_in)
+		tdin<-readAll(tdin)
 	}
 	###############################################################################################
 	# 01. set the clusters for parallel computing
@@ -556,7 +559,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	on.exit( returnCluster() )
 	nodes <- length(cl)
 	bs <- blockSize(sw_in, minblocks=nodes*10)
-	parallel:::clusterExport(cl, c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
+	parallel:::clusterExport(cl, c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bf_in', 'tdin','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = bs$n, style = 1)
 	###############################################################################################
@@ -598,7 +601,8 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		swe<-writeStart(swe,filename=paste0("swe","_",y,".grd"),overwrite=TRUE)
 		# cond<-writeStart(cond,filename=paste0("cond","_",y,".grd"),overwrite=TRUE)
 		bflow<-writeStart(bflow,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
-		tdrain<-writeStart(tdrain,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
+		tdrain<-writeStart(tdrain,filename=paste0("tdrain","_",y,".grd"),overwrite=TRUE)
+		q_in<-writeStart(q_in,filename=paste0("q_in","_",y,".grd"),overwrite=TRUE)
 		
 	}else {
 		matsm <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
@@ -609,6 +613,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		# matcond <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		matbflow<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		mattdrain<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
+		matq_in<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		endind<-cumsum(bs$nrows*sm@ncols)
 		startind<-c(1,endind+1)    
 	}
@@ -634,6 +639,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 			# cond <- writeValues(cond, do.call(rbind,d$value$value[6,]), bs$row[b])
 			bflow <- writeValues(bflow, do.call(rbind,d$value$value[7,]), bs$row[b])
 			tdrain <- writeValues(tdrain, do.call(rbind,d$value$value[9,]), bs$row[b])
+			q_in <- writeValues(q_in, do.call(rbind,d$value$value[10,]), bs$row[b])
 			
 		} else {
 			
@@ -645,6 +651,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 			# matcond[startind[b]:endind[b],] <- do.call(rbind,d$value$value[6,])
 			matbflow[startind[b]:endind[b],] <- do.call(rbind,d$value$value[7,])
 			mattdrain[startind[b]:endind[b],] <- do.call(rbind,d$value$value[9,])
+			matq_in[startind[b]:endind[b],] <- do.call(rbind,d$value$value[10,])
 		}
 		
 		# need to send more data?
@@ -666,7 +673,8 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		swe <- writeStop(swe)
 		# cond <- writeStop(cond)
 		bflow <- writeStop(bflow)
-		tdrain <- writeStop(tdrain)	
+		tdrain <- writeStop(tdrain)
+		q_in <- writeStop(q_in)		
 	} else {
 		# soil water content
 		sm<-setValues(sm,matsm)
@@ -684,10 +692,11 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		bflow<-setValues(bflow,matbflow)
 		# time drainage
 		tdrain<-setValues(tdrain,mattdrain)
+		q_in<-setValues(q_in,matq_in)
 		
 	}
 	close(pb)
 	gc()
-	return(list(wn=stack(sm),ro=stack(ro),pet=stack(pet),aet=stack(aet),snow=stack(swe),bflow=stack(bflow),tdrain=stack(tdrain)))
+	return(list(wn=stack(sm),ro=stack(ro),pet=stack(pet),aet=stack(aet),snow=stack(swe),bflow=stack(bflow),tdrain=stack(tdrain),q_in=stack(q_in)))
 		
 }

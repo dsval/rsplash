@@ -56,7 +56,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 				stidx<-i-1
 				# correct for leap years	
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[stidx]:end[i]], tc[start[stidx]:end[i]], pn[start[stidx]:end[i]],
-					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$bflow,result[[stidx]]$tdrain)
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain)
 			}
 			result<-lapply(result,FUN=base::as.data.frame)
 			result<-do.call(rbind,result)
@@ -94,7 +94,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 				stidx<-i-1
 				# correct for leap years	
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[i]:end[i]], tc[start[i]:end[i]], pn[start[i]:end[i]],
-					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$bflow,result[[stidx]]$tdrain)
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain)
 			}
 			result<-lapply(result,FUN=base::as.data.frame)
 			result<-do.call(rbind,result)

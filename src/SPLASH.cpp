@@ -194,7 +194,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double theta_fc = FC/(depth *1000.0);
     double theta_wp = WP/(depth *1000.0);
     double theta_q0 = theta_wp + 0.01;
-    double theta_qs = theta_s - 0.02;
+    double theta_qs = theta_s;
     double theta_i = (wn)/(depth*1000.0);
     double alph = 4.0 + 2.0*lambda;
     // 7.1. assume hydraulic gradient as the slope
@@ -397,8 +397,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //7.4.2.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
     double T_qs = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_qs), (3.0*lambda+1.0))-pow((bub_press/(psi_qs +(wtd_qs*1000.0))), (3.0*lambda+1.0)) );
     //7.4.2.5 adjust transmitance to m3/day
-    double Q_qs = (T_qs *hyd_grad *((24.0 * sqrt(Ai))/(1.0e6)))+(hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000);
-    //double Q_qs = (hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000.0);
+    //double Q_qs = (T_qs *hyd_grad *((24.0 * sqrt(Ai))/(1.0e6)))+(hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000);
+    double Q_qs = (hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000.0);
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // 7.4.2 compute Kb
     //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -456,33 +456,33 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~
     double ro_h = 0.0;
     //declare some variables
-    //drainage efficiency
-    double e_dr =0.0;
-    // Baseflow
-    double q_out = 0.0;
-    //initial water content
-    //double theta_i = 0.0;
-    //matric potential
-    //double psi_m = 0.0;
-    //thicknes of the saturated part of the soil column
-    double thickness = 0.0;
-    //cross- sectional area of the saturated part
-    //double Acs_out = 0.0;
-    //water table depth
-    //double wtd =0.0;
-    
+   double dummy = wn + R;
+     if (dummy > SAT){
+        // Bucket is too full:
+        //   allocate excess water to runoff
+        
+        ro_h = (dummy - SAT);
+        dummy = SAT;
+        R -= ro_h;
+   
+    } else if (dummy < RES){
+        // Bucket is too empty:
+        //   set soil moisture & runoff to zero
+        ro_h = 0.0;
+        dummy = RES;
+    } 
     if (sm > SAT){
         // Bucket is too full:
         //   allocate excess water to runoff
         
-        ro_h = (sm - SAT);
+        //ro_h = (sm - SAT);
         sm = SAT;
-        R -= ro_h;
+        //R -= ro_h;
    
     } else if (sm < RES){
         // Bucket is too empty:
         //   set soil moisture & runoff to zero
-        ro_h = 0.0;
+        //ro_h = 0.0;
         sm = RES;
     } 
     // 5.1 update runoff
@@ -682,7 +682,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double theta_fc = FC/(depth *1000.0);
     double theta_wp = WP/(depth *1000.0);
     double theta_q0 = theta_wp + 0.01;
-    double theta_qs = theta_s - 0.02;
+    double theta_qs = theta_s;
     double theta_i = (wn)/(depth*1000.0);
     double alph = 4.0 + 2.0*lambda;
     // 7.1. assume hydraulic gradient as the slope
@@ -794,8 +794,8 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //7.4.2.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
     double T_qs = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_qs), (3.0*lambda+1.0))-pow((bub_press/(psi_qs +(wtd_qs*1000.0))), (3.0*lambda+1.0)) );
     //7.4.2.5 adjust transmitance to m3/day
-    double Q_qs = (T_qs *hyd_grad *((24.0 * sqrt(Ai))/(1.0e6)))+(hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000);
-    //double Q_qs = (hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000.0);
+   // double Q_qs = (T_qs *hyd_grad *((24.0 * sqrt(Ai))/(1.0e6)))+(hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000);
+    double Q_qs = (hyd_grad * Ksat_visc*24.0* (Acs_out_qs)/1000.0);
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // 7.4.2 compute Kb
     //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -866,20 +866,33 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //cross- sectional area of the saturated part
     //double Acs_out = 0.0;
     //water table depth
-    //double wtd =0.0;
-    
+    double dummy = wn + R;
+     if (dummy > SAT){
+        // Bucket is too full:
+        //   allocate excess water to runoff
+        
+        ro_h = (dummy - SAT);
+        dummy = SAT;
+        R -= ro_h;
+   
+    } else if (dummy < RES){
+        // Bucket is too empty:
+        //   set soil moisture & runoff to zero
+        ro_h = 0.0;
+        dummy = RES;
+    } 
     if (sm > SAT){
         // Bucket is too full:
         //   allocate excess water to runoff
         
-        ro_h = (sm - SAT);
+        //ro_h = (sm - SAT);
         sm = SAT;
-        R -= ro_h;
+        //R -= ro_h;
    
     } else if (sm < RES){
         // Bucket is too empty:
         //   set soil moisture & runoff to zero
-        ro_h = 0.0;
+        //ro_h = 0.0;
         sm = RES;
     } 
     // 5.1 update runoff
@@ -930,39 +943,33 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double T = (T_sat+T_uns)*hyd_grad;
      // total Q
     //double Q = (Q_sat+Q_uns)*hyd_grad;
-    double Q = (Q_sat+Q_uns)*0.3;
-    // double Q = (T*Ai)/1000;
+    //double Q = (Q_sat+Q_uns)*0.3;
+    double Q = (T*Ai)/1000;
     // failsafe for low water contents where there is no saturated section or big storms
     if (T  < 0.0 || isnan(T)==1){
         T  = 0.0;
         Q  = 0.0;
     }
     
-     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 7.5. Estimate time required to drain upslope recharge [days]
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   // TO DO: recalculate volume Au from ti-1 if R<0.0 and correct tdrain
     double t_drain = 0.0;
 
     if((R > 0.0) && (sm > Wmax)){
-        t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Qo)))/log(Kb);
-        q_in = Qo/(Ai*pow(Kb,t_drain));
+        t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
+        q_in = Q/(Ai*pow(Kb,t_drain));
     } else {
-        t_drain = 0.0;
+        t_drain = (td -1.0);
+        q_in = 0.0;
     }
 
-    if( isnan(t_drain)==1 ){
+    if( isnan(t_drain)==1 || (t_drain < 0.0)){
        t_drain = 0.0;
-    }else if (t_drain >365.0){
+    } else if (t_drain >365.0){
         t_drain = 365.0;
     }
-   
-    t_drain += (td -1.0);
+        
 
-    if((t_drain < 0.0) ){
-       t_drain = 0.0;
-    }
-
-    sm += (qin-T);
+    sm += (q_in-T);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.7. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
