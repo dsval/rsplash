@@ -381,10 +381,10 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	# get soil hydrophysical characteristics
 	soil_info<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
 	depth <- soil_data[6]
-	SAT<-soil_info$SAT*(1-soil_data[4]/100)*depth*1000
-	WP<-soil_info$WP*(1-soil_data[4]/100)*depth*1000
-	FC<-soil_info$FC*(1-soil_data[4]/100)*depth*1000
-	RES<-soil_info$RES*(1-soil_data[4]/100)*depth*1000
+	SAT<-soil_info$SAT*depth*1000
+	WP<-soil_info$WP*depth*1000
+	FC<-soil_info$FC*depth*1000
+	RES<-soil_info$RES*depth*1000
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
 	if(length(Au)==1){
@@ -457,10 +457,10 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	# get soil hydrophysical characteristics
 	soil_info<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
 	depth <- soil_data[6]
-	SAT<-soil_info$SAT*(1-soil_data[4]/100)*depth*1000
-	WP<-soil_info$WP*(1-soil_data[4]/100)*depth*1000
-	FC<-soil_info$FC*(1-soil_data[4]/100)*depth*1000
-	RES<-soil_info$RES*(1-soil_data[4]/100)*depth*1000
+	SAT<-soil_info$SAT*depth*1000
+	WP<-soil_info$WP*depth*1000
+	FC<-soil_info$FC*depth*1000
+	RES<-soil_info$RES*depth*1000
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
 	if(length(Au)==1){

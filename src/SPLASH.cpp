@@ -193,9 +193,15 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double theta_r = RES/(depth *1000.0);
     double theta_fc = FC/(depth *1000.0);
     double theta_wp = WP/(depth *1000.0);
-    double theta_q0 = theta_wp + 0.01;
+    double theta_q0 = theta_wp + 0.001;
     double theta_qs = theta_s;
     double theta_i = (wn)/(depth*1000.0);
+    // correct theta_i for NA error reaching boundary conditions
+    if (theta_i>=theta_s){
+        theta_i = theta_s - 0.001;
+    } else if (theta_i<=theta_r){
+        theta_i = theta_wp + 0.001;
+    }
     double alph = 4.0 + 2.0*lambda;
     // 7.1. assume hydraulic gradient as the slope
     double hyd_grad = (dtan(slop));
@@ -204,26 +210,76 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 00. Compute real FC
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double coeff_A = exp(log(33.0) + (1.0/lambda)*log(FC/(depth *1000.0)));
-    double Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    //double coeff_A = exp(log(33.0) + (1.0/lambda)*log(FC/(depth *1000.0)));
+    //double Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
     
     double psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // // 1. Calculate evaporative supply rate (sw), mm/h using calculate water in the first 50cm of depth
+    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 1.0 get wtd
+    double wtd = ((bub_press-psi_m)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd < 0.0 || isnan(wtd)==1){
+        wtd = 0.0;
+    }else if (wtd > depth){
+        wtd = depth;
+    }
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 2.0 get unsaturated/saturated depth within root zone if wtd is shallow, MAX ROOTING DEPTH = 2.0 m
+    /////////////////////////////////////////////////////////////////////////////////////
+    double z_uns =0.0;
+    double sat_swc = 0.0;
+    if (wtd<=2.0){
+        z_uns = wtd*1000.0;
+        sat_swc = theta_s*(2.0-wtd)*1000.0;
+    }else{
+        z_uns = 2.0*1000.0;
+        sat_swc = 0.0;
+    }
     
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 4.0 calculate water in the within root zone
+    /////////////////////////////////////////////////////////////////////////////////////
+    double w_uns_z = (theta_r*z_uns) + (((psi_m+z_uns)*(theta_r-theta_s)*pow((bub_press/(psi_m+z_uns)),lambda))/(lambda-1));
+    double w_uns_0 = (theta_r*0.0) + (((psi_m+0.0)*(theta_r-theta_s)*pow((bub_press/(psi_m+0.0)),lambda))/(lambda-1));
+	double w_uns = w_uns_z-w_uns_0;
+    double w_z = w_uns + sat_swc ;
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 3.0 calculate real FC
+    /////////////////////////////////////////////////////////////////////////////////////
+    double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
+    double Wmax = pow((coeff_A/(z_uns)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 5.0 calculate supply rate (sw)
+    /////////////////////////////////////////////////////////////////////////////////////
+    double sw = 0.0;
+    if (depth>2.0){
+        double RES_z = theta_r * z_uns;
+        sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
+    } else{
+        Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+        sw = Global::Cw*((wn-RES)/(Wmax-RES));
+    }
+   
+    //double sw = Global::Cw*((wn)/(SAT));
+    if (sw < 0.0 || isnan(sw)==1) {
+         sw = 0.0;
+     } else if (sw > Global::Cw){
+         sw = Global::Cw;
+     }
+
+
+    //double theta_uns = w_uns/( dept_rz*1000.0);
+    //psi_m = bub_press/pow((((theta_uns-theta_r)/(theta_s-theta_r))),(1/lambda));
+
     // // 7.2.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
-    // double wtd = ((bub_press-psi_m)/1000.0);
-    // // failsafe for low water contents where there is no saturated section or big storms
-    // if (wtd < 0.0 || isnan(wtd)==1){
-    //     wtd = 0.0;
-    // }else if (wtd > depth){
-    //     wtd = depth;
-    // }
+    
     // double w_sat = theta_s * (depth-wtd) * 1000.0;
     // //double theta_u = (w_uns)/((wtd)*1000.0);
     // double theta_u = moist_surf(depth,10.0,bub_press,wn,SAT,RES,lambda);
-    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // // 1. Calculate evaporative supply rate (sw), mm/h
-    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // //calculate water in the first 50cm of depth
+    
+    // //
     // double dept_rz = 0.0;
 
     // if (depth > 0.5){
@@ -255,13 +311,13 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // // org splash
-    double sw = Global::Cw*((wn-RES)/(Wmax-RES));
-    //double sw = Global::Cw*((wn)/(SAT));
-    if (sw < 0.0 || isnan(sw)==1) {
-         sw = 0.0;
-     } else if (sw > Global::Cw){
-         sw = Global::Cw;
-     }
+    // double sw = Global::Cw*((wn-RES)/(Wmax-RES));
+    // //double sw = Global::Cw*((wn)/(SAT));
+    // if (sw < 0.0 || isnan(sw)==1) {
+    //      sw = 0.0;
+    //  } else if (sw > Global::Cw){
+    //      sw = Global::Cw;
+    //  }
    
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -383,7 +439,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     // 7.4.2 estimate baseflow at saturation Q_qs
     // 7.4.2.1 calculate matric potential (mmH2O)
-    double psi_qs = bub_press/pow((((theta_qs-theta_r)/(theta_s-theta_r))),(1/lambda));
+    double psi_qs = bub_press/pow((((theta_s-theta_r)/(theta_s-theta_r))),(1/lambda));
     // 7.4.2.2 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
     double wtd_qs = ((bub_press-psi_qs)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
@@ -393,7 +449,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
         wtd_qs = depth;
     }
     //7.4.2.3 calculate pixel's cross sectional area for baseflow output [m^2]
-    double Acs_out_qs = (depth - wtd_qs) * sid_oct * cellout;
+    double Acs_out_qs = (depth) * sid_oct * cellout;
     //7.4.2.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
     double T_qs = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_qs), (3.0*lambda+1.0))-pow((bub_press/(psi_qs +(wtd_qs*1000.0))), (3.0*lambda+1.0)) );
     //7.4.2.5 adjust transmitance to m3/day
@@ -407,11 +463,11 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 7.2. Estimate Transmitance at the beggining of the day
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.2.1 calculate volumetric water content for the whole soil column
-    theta_i = (wn)/(depth*1000.0);
+    //theta_i = (wn)/(depth*1000.0);
     // 7.2.2 calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
     // 7.2.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
-    double wtd = ((bub_press-psi_m)/1000.0);
+    wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
         wtd = 0.0;
@@ -524,7 +580,11 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // adjust to flux density  and daily timestep [mm/day]
          
     T_uns *= ((24.0 * cellout*sid_oct)/(1000.0* Ai));
-    
+     // failsafe for low water contents where there is no saturated section or big storms
+    if (T_uns  < 0.0 || isnan(T_uns)==1){
+        T_uns  = 0.0;
+        Q_uns  = 0.0;
+    }
     // transmitance over the saturated part of the profile adjusted to flux density [mm/day]
     double T_sat = Ksat_visc*24.0* (Acs_out/Ai);
      // adjust transmitance to m3/day
@@ -532,13 +592,9 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // total transmitance at initial soil moisture wn
     double T = (T_sat+T_uns)*hyd_grad;
      // total Q m3/day
-    //double Q = (Q_sat+Q_uns)*0.3;
+    //double Q = (Q_sat+Q_uns)*hyd_grad;
     double Q = (T*Ai)/1000;
-    // failsafe for low water contents where there is no saturated section or big storms
-    if (T  < 0.0 || isnan(T)==1){
-        T  = 0.0;
-        Q  = 0.0;
-    }
+   
      // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.5. recalculate volume Au from ti-1 if R<0.0 and correct td
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -681,9 +737,15 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double theta_r = RES/(depth *1000.0);
     double theta_fc = FC/(depth *1000.0);
     double theta_wp = WP/(depth *1000.0);
-    double theta_q0 = theta_wp + 0.01;
+    double theta_q0 = theta_wp + 0.001;
     double theta_qs = theta_s;
     double theta_i = (wn)/(depth*1000.0);
+    // correct theta_i for NA error reaching boundary conditions
+    if (theta_i>=theta_s){
+        theta_i = theta_s - 0.001;
+    } else if (theta_i<=theta_r){
+        theta_i = theta_wp + 0.001;
+    }
     double alph = 4.0 + 2.0*lambda;
     // 7.1. assume hydraulic gradient as the slope
     double hyd_grad = (dtan(slop));
@@ -692,18 +754,58 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 00. Compute real FC
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double coeff_A = exp(log(33.0) + (1.0/lambda)*log(FC/(depth *1000.0)));
-    double Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    //double coeff_A = exp(log(33.0) + (1.0/lambda)*log(FC/(depth *1000.0)));
+    //double Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
     
     double psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // // 1. Calculate evaporative supply rate (sw), mm/h using calculate water in the first 50cm of depth
+    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 1.0 get wtd
+    double wtd = ((bub_press-psi_m)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd < 0.0 || isnan(wtd)==1){
+        wtd = 0.0;
+    }else if (wtd > depth){
+        wtd = depth;
+    }
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 2.0 get unsaturated/saturated depth within root zone if wtd is shallow, MAX ROOTING DEPTH = 2.0 m
+    /////////////////////////////////////////////////////////////////////////////////////
+    double z_uns =0.0;
+    double sat_swc = 0.0;
+    if (wtd<=2.0){
+        z_uns = wtd*1000.0;
+        sat_swc = theta_s*(2.0-wtd)*1000.0;
+    }else{
+        z_uns = 2.0*1000.0;
+        sat_swc = 0.0;
+    }
     
-
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 1. Calculate evaporative supply rate (sw), mm/h Original
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // // org splash
-    double sw = Global::Cw*((wn-RES)/(Wmax-RES));
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 4.0 calculate water in the within root zone
+    /////////////////////////////////////////////////////////////////////////////////////
+    double w_uns_z = (theta_r*z_uns) + (((psi_m+z_uns)*(theta_r-theta_s)*pow((bub_press/(psi_m+z_uns)),lambda))/(lambda-1));
+    double w_uns_0 = (theta_r*0.0) + (((psi_m+0.0)*(theta_r-theta_s)*pow((bub_press/(psi_m+0.0)),lambda))/(lambda-1));
+	double w_uns = w_uns_z-w_uns_0;
+    double w_z = w_uns + sat_swc ;
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 3.0 calculate real FC
+    /////////////////////////////////////////////////////////////////////////////////////
+    double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
+    double Wmax = pow((coeff_A/(z_uns)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 5.0 calculate supply rate (sw)
+    /////////////////////////////////////////////////////////////////////////////////////
+    double sw = 0.0;
+     if (depth>2.0){
+        double RES_z = theta_r * z_uns;
+        sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
+    } else{
+        Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+        sw = Global::Cw*((wn-RES)/(Wmax-RES));
+    }
+   
     //double sw = Global::Cw*((wn)/(SAT));
     if (sw < 0.0 || isnan(sw)==1) {
          sw = 0.0;
@@ -790,7 +892,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         wtd_qs = depth;
     }
     //7.4.2.3 calculate pixel's cross sectional area for baseflow output [m^2]
-    double Acs_out_qs = (depth - wtd_qs) * sid_oct * cellout;
+    double Acs_out_qs = (depth) * sid_oct * cellout;
     //7.4.2.4 calculate transmitance over the unsaturated part of th profile [mm^2/h]
     double T_qs = (Ksat_visc*bub_press/(3.0*lambda+1.0)) * ( pow((bub_press/psi_qs), (3.0*lambda+1.0))-pow((bub_press/(psi_qs +(wtd_qs*1000.0))), (3.0*lambda+1.0)) );
     //7.4.2.5 adjust transmitance to m3/day
@@ -804,11 +906,11 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 7.2. Estimate Transmitance at the beggining of the day
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7.2.1 calculate volumetric water content for the whole soil column
-    theta_i = (wn)/(depth*1000.0);
+    //theta_i = (wn)/(depth*1000.0);
     // 7.2.2 calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
     // 7.2.3 calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
-    double wtd = ((bub_press-psi_m)/1000.0);
+    wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
         wtd = 0.0;
@@ -934,7 +1036,11 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // adjust to flux density  and daily timestep [mm/day]
          
     T_uns *= ((24.0 * cellout*sid_oct)/(1000.0 * Ai));
-    
+    // failsafe for big storms
+    if (T_uns  < 0.0 || isnan(T_uns)==1){
+        T_uns  = 0.0;
+        Q_uns  = 0.0;
+    }
     // transmitance over the saturated part of the profile adjusted to flux density [mm/day]
     double T_sat = Ksat_visc*24.0* (Acs_out/Ai);
      // adjust transmitance to m3/day
@@ -945,11 +1051,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //double Q = (Q_sat+Q_uns)*hyd_grad;
     //double Q = (Q_sat+Q_uns)*0.3;
     double Q = (T*Ai)/1000;
-    // failsafe for low water contents where there is no saturated section or big storms
-    if (T  < 0.0 || isnan(T)==1){
-        T  = 0.0;
-        Q  = 0.0;
-    }
+    
     
    // TO DO: recalculate volume Au from ti-1 if R<0.0 and correct tdrain
     double t_drain = 0.0;
@@ -1016,7 +1118,24 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     double td;  // days left to drain the area upslope
     smr dsm;    // daily soil moisture, swe and runoff
     //residual water content
+    //read soil hydro points in mm
+    //saturation (water  content mm at 0 KPa)
+    double SAT = soil_info[0];
+    //wilting point (water content mm at 1500 KPa)
+    double WP = soil_info[1];
+    //slope of the log-log curve soil moisture-matric potetial from brooks and Corey (1964)
+    double lambda = soil_info[4];
+    double depth = soil_info[5];
+    //bubbling pressure/capillarity fringe (mm)
+    double bub_press = soil_info[6];
+    //residual water content, test as WP?
     double RES = soil_info[1];
+    //double RES = soil_info[7];
+
+    double theta_s = SAT/(depth *1000.0);
+    double theta_r = RES/(depth *1000.0);
+    
+
     // Prepare daily soil moisture vector
     //    int n = d.nlines();
     //    int y = d.get_year();
@@ -1055,11 +1174,18 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
 
     // Calculate change in starting soil moisture:
     double start_sm = wn_vec[0];
+    double start_wtd = get_wtd( start_sm,  depth,  bub_press, theta_s, theta_r, lambda);
     quick_run(1, y, wn_vec[n-1], sw_in[0], tair[0],
               pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1]);
     double end_sm = dsm.sm;
+    double end_wtd = get_wtd(end_sm,  depth,  bub_press, theta_s, theta_r, lambda);
     double diff_sm = (end_sm - start_sm);
     double diff_swe = (dsm.swe - snow_vec[0]);
+    double diff_wtd = (end_wtd - start_wtd);
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////
+   
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     //abs() works weird inside the while loop
     if (diff_sm < 0){
         diff_sm = (start_sm - end_sm);
@@ -1067,9 +1193,12 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     if (diff_swe < 0){
         diff_swe = (snow_vec[0] - dsm.swe);
     }
-    // Equilibrate
+    if (diff_wtd < 0){
+        diff_wtd = (start_wtd - end_wtd);
+    }
+    // Equilibrate (diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 100)
     int spin_count = 1;
-    while ((diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 100)){
+    while ((diff_sm > 1.0) && (diff_wtd > 0.01) ){
         for (int i=0; i<n; i++){
             // Get preceeding soil moisture status:
             if (i == 0){
@@ -1097,15 +1226,20 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
 
         // Calculate difference
         start_sm = wn_vec[0];
+        start_wtd = get_wtd( start_sm,  depth,  bub_press, theta_s, theta_r, lambda);
         quick_run(1, y, wn_vec[n-1], sw_in[0], tair[0],
                   pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1]);
         end_sm = dsm.sm;
+        end_wtd = get_wtd(end_sm,  depth,  bub_press, theta_s, theta_r, lambda);
         diff_sm = (end_sm - start_sm);
         diff_swe = (dsm.swe - snow_vec[0]);
+        diff_wtd = (end_wtd - start_wtd);
         if (diff_sm < 0){
             diff_sm = (start_sm - end_sm);
         }
-
+        if (diff_wtd < 0){
+        diff_wtd = (start_wtd - end_wtd);
+        }
         spin_count++;
     }
 
@@ -1286,7 +1420,32 @@ double SPLASH::inf_GA(double bub_press,double theta_i,double Ksat,double theta_s
 	return I;
 }
 
-
+double SPLASH::get_wtd(double wn, double depth, double bub_press,double theta_s,double theta_r,double lambda){
+    /* ***********************************************************************
+    Name:     SPLASH::get_wtd
+    Input:    double wn, double depth, double bub_press,double theta_s,double theta_r,double lambda
+    Output:   double
+    Features: water table depth, meters.
+    *********************************************************************** */
+    double theta_i = (wn)/(depth*1000.0);
+    // correct theta_i for NA error reaching boundary conditions
+    if (theta_i>=theta_s){
+        theta_i = theta_s - 0.001;
+    } else if (theta_i<=theta_r){
+        theta_i = theta_r + 0.001;
+    }
+    double psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
+    // 1.0 get wtd
+    double wtd= ((bub_press-psi_m)/1000.0);
+    // failsafe for low water contents where there is no saturated section or big storms
+    if (wtd < 0.0 || isnan(wtd)==1){
+        wtd = 0.0;
+    }else if (wtd > depth){
+        wtd = depth;
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    return wtd;
+}
 double SPLASH::get_elv(){
     /* ***********************************************************************
     Name:     SPLASH.get_elv
