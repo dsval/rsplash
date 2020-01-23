@@ -1198,7 +1198,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     }
     // Equilibrate (diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 100)
     int spin_count = 1;
-    while ((diff_sm > 1.0) && (diff_wtd > 0.0005) ){
+    while ((diff_sm > 1.0) && (diff_swe > 1.0) ){
         for (int i=0; i<n; i++){
             // Get preceeding soil moisture status:
             if (i == 0){
