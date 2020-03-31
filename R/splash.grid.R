@@ -25,7 +25,13 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	###########################################################################
 	# 01. Calculate spatial distributed variables
 	###########################################################################
-	tmpdir<-dirname(rasterTmpFile())
+	if (type=='MPI'){
+		tmpdir<-'/rdsgpfs/general/ephemeral/user/ds6915/ephemeral/splashtemp'
+	} else {
+		tmpdir<-dirname(rasterTmpFile())
+	}
+	
+	
 	setwd(tmpdir)
 	# get resolution in m2
 	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
@@ -59,7 +65,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	}
 	# 1.1 calculate upslope area in m2, *all the raster will be saved to the disk by default and latitude
 	if (ncell(elev)>1e7|resolution>=10000){
-		Au<-upslope_areav2(elev, type)
+		Au<-upslope_areav2(elev, type,tmpdir)
 		# 1.2.2 get latitude from the high res dem
 		lat<-getlatitude(elev_hres, filename='lat.grd')
 		gc()

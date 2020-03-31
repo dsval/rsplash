@@ -39,40 +39,32 @@ upslope_area<-function(dem){
 	return(stack(areacatch,ncellin,ncellout))
 	
 }
-upslope_areav2<-function(dem,type){
+upslope_areav2<-function(dem,type,tmpd){
 	# returns upslope area in square meters
 	# require(raster)
 	# Set working directory to your location
-	#setwd(tmpdir)
+	setwd(tmpd)
 	
 	writeRaster(dem,"rawdem.tif",format="GTiff", overwrite=TRUE)
 	
-	# if(type == 'MPI'){
-	# 	# Pitremove
-	# 	system("pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# 	
-	# 	# D8 flow directions
-	# 	system("d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# 	# Contributing area
-	# 	system("aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
-	# }else{
-	# 	# Pitremove
-	# 	system("mpiexec pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# 	
-	# 	# D8 flow directions
-	# 	system("mpiexec d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# 	# Contributing area
-	# 	system("mpiexec aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
-	# }
-	
-	# Pitremove
-		system("mpiexec pitremove -z rawdem.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# 	
-	# 	# D8 flow directions
-		system("mpiexec d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif",show.output.on.console=F,invisible=F)
-	# 	# Contributing area
-		system("mpiexec aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc",show.output.on.console=F,invisible=F)
-	
+	if(type == 'MPI'){
+		# Pitremove
+		system("pitremove -z rawdem.tif -fel dem_nopit.tif")
+		
+		# D8 flow directions
+		system("d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif")
+		# Contributing area
+		system("aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc")
+	}else{
+		# Pitremove
+		system("mpiexec pitremove -z rawdem.tif -fel dem_nopit.tif")
+		
+		# D8 flow directions
+		system("mpiexec d8flowdir -p dem_p.tif -sd8 dem_sd8.tif -fel dem_nopit.tif")
+		# Contributing area
+		system("mpiexec aread8 -p dem_p.tif -ad8 dem_a_ac.tif -nc")
+	}
+			
 	ups_ncell<-raster("dem_a_ac.tif")
 	flowdir<-raster("dem_p.tif")
 	area_p_cell<-area(ups_ncell)
