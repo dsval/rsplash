@@ -185,7 +185,9 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 10. Estimate net longwave radiation (rnl), W/m^2
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    rnl = (Global::b + (1.0 - Global::b)*tau)*(Global::A - 0.3*tc);
+    //rnl = (Global::b + (1.0 - Global::b)*tau)*(Global::A - 0.3*tc);
+    double sf =(tau-Global::c)/Global::d;
+    rnl = (Global::b + (1.0 - Global::b)*sf)*(Global::A - 0.3*tc);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 11. Calculate variable substitute (rw), W/m^2

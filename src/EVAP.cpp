@@ -151,21 +151,22 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Estimate daily water supply, mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // //9.1. Soil matric potential to MPa
-    // double psi_m_mpa = psi_m * 0.00000980665;
-    // // //9.2. Leaf water potential at critical leaf RWC [MPa]
-    // // molar volume
-    // double v_m = 18/pw;
-    // double psi_l_c = ((0.082*(273.15+tw)*log(0.90))/(v_m))*0.101325;
-    // // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    // double Rp = (-0.033-psi_l_c)/pet_d;
+    /*
+    //9.1. Soil matric potential to MPa
+    double psi_m_mpa = psi_m * 0.00000980665;
+    // //9.2. Leaf water potential at critical leaf RWC [MPa]
+    // molar volume
+    double v_m = 18/pw;
+    double psi_l_c = ((0.082*(273.15+tw)*log(0.90))/(v_m))*0.101325;
+    // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
+    double Rp = (-0.033-psi_l_c)/pet_d;
 
-    // // //9.3. Leaf water potential assuming RWC at 98% [MPa]
-    // double psi_l = ((0.082*(273.15+tw)*log(0.98))/(v_m))*0.101325;
+    // //9.3. Leaf water potential assuming RWC at 98% [MPa]
+    double psi_l = ((0.082*(273.15+tw)*log(0.98))/(v_m))*0.101325;
         
-    // //9.5. water supply mm/day
-    // double sw = (psi_m_mpa-psi_l)/Rp;
-    
+    //9.5. water supply mm/day
+    double sw = (psi_m_mpa-psi_l)/Rp;
+    */
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7. Calculate the intersection hour angle (hi), degrees
