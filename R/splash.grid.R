@@ -67,7 +67,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	if (ncell(elev)>1e7|resolution>=10000){
 		Au<-upslope_areav2(elev, type,tmpdir)
 		# 1.2.2 get latitude from the high res dem
-		lat<-getlatitude(elev_hres, filename='lat.grd')
+		lat<-getlatitude(elev, filename='lat.grd')
 		gc()
 	}else{
 		Au<-upslope_area(elev)
