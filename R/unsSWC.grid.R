@@ -1,7 +1,7 @@
 #' unsSWC.grid
 #'
 #' Estimates water content using an analytca integral of the profile described by Brooks and Corey 1964 and calculates depth to water table if there is any
-#' @param  soil_data, Raster* object with the layers organized as sand(%),clay(%),organic matter(%),coarse-fragments-fraction(%), bulk density(g cm-3)
+#' @param  soil_data, Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3)
 #' @param  uns_depth, maximum depth to calculate the accumulated water content in (m)
 #' @param  wn, Raster* object, total water content of the profile from surface to bedrock (m)
 #' @param  ouputdir, directory where to save the files

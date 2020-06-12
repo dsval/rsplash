@@ -17,7 +17,7 @@ splash.grid(sw_in, tc, pn, elev, soil, outdir = getwd(),
 
 \item{elev}{Elevation (m.a.s.l)}
 
-\item{soil}{Raster* object with the layers organized as sand(%),clay(%),organic matter(%),coarse-fragments-fraction(%), bulk density(g cm-3)}
+\item{soil}{Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3)}
 
 \item{outdir}{(optional) directory path where the results will be saved, working directory by default}
 

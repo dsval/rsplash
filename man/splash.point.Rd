@@ -20,7 +20,7 @@ splash.point(sw_in, tc, pn, lat, elev, slop = 0, asp, soil_data,
 
 \item{asp}{Terrain feature: slope orientation (戼㸰), standard clockwise from 0.0戼㸰 North}
 
-\item{soil_data}{Soil data organized as a vector in the way: c(sand(%),clay(%),organic matter(%),coarse-fragments-fraction(%), bulk density(g cm-3))}
+\item{soil_data}{Soil data organized as a vector in the way: c(sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3))}
 }
 \value{
 a time series matrix including:

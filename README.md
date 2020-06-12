@@ -28,7 +28,7 @@ run1<-splash.point(
 	resolution=250.0  			# resolution pixel dem used to get Au
 )
 # plot the snow water equivalent
-plot(forcing[[1]][,4],main='SWE (mm)');lines(run1[,5],col=2,lwd=2)
+plot(Bourne$forcing[,4],main='SWE (mm)');lines(run1[,5],col=2,lwd=2)
 
 #To compare the simulations of soil water content (mm) with measurements usually taken up to a certain depth:
 

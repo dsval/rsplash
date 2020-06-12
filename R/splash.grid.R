@@ -6,7 +6,7 @@
 #' @param   tc Air temperature (°C), same dimensions as sw_in
 #' @param   pn Precipitation (mm), same dimensions as sw_in
 #' @param   elev Elevation (m.a.s.l)
-#' @param   soil Raster* object with the layers organized as sand(%),clay(%),organic matter(%),coarse-fragments-fraction(%), bulk density(g cm-3)
+#' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3)
 #' @param   outdir (optional) directory path where the results will be saved, working directory by default
 #' @param   tmpdir (optional) directory path where the temporary files will be saved, default temporary directory by default
 #' @param   sim.control (optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.
