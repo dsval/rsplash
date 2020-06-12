@@ -1,37 +1,48 @@
-#' splash.grid
-#'
-#' Apply splash algorithm
-#' @param   sw_in, lon
-#' @param   tc, lon
-#' @param   pn, lon
-#' @param   elev, lon
-#' @return a matrix xts type
-#' @import Rcpp
-#' @import raster 
-#' @import parallel  
-#' @import zoo
-#' @keywords splash
+#' Simple process-led algorithms for simulating habitats (SPLASH v.2.0)
+#' 
+#' R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
+#' 
+#' @param   sw_in Incoming shortwave solar radiation (W m-2), Raster* object of monthly or daily averages with z time dimension.
+#' @param   tc Air temperature (°C), same dimensions as sw_in
+#' @param   pn Precipitation (mm), same dimensions as sw_in
+#' @param   elev Elevation (m.a.s.l)
+#' @param   soil Raster* object with the layers organized as sand(%),clay(%),organic matter(%),coarse-fragments-fraction(%), bulk density(g cm-3)
+#' @param   outdir (optional) directory path where the results will be saved, working directory by default
+#' @param   tmpdir (optional) directory path where the temporary files will be saved, default temporary directory by default
+#' @param   sim.control (optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.
+#' @return a list of rasterBricks objects with z time dimension, all of them saved to outdir as netcdf files:
+#' \itemize{
+#'         \item \eqn{W_n}: Soil water content (mm) within the first 2 m of depth.
+#'         \item \eqn{ro}: Runoff (mm d-1).
+#'         \item \eqn{pet}: Potential evapotranspiration (mm d-1).
+#'         \item \eqn{aet}: Actual evapotranspiration (mm d-1).
+#'         \item \eqn{snow}: Snow water equivalent (mm).
+#'         \item \eqn{bflow}: Lateral flow (mm d-1).
+#' }
+#' @import Rcpp 
+#' @import xts
+#' @keywords splash, evapotranspiration, soil moisture
 #' @export
 #' @examples
-#' splash.grid()
-splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list(par=TRUE, ncores=4,output.mode="daily",inmem=FALSE), type='SOCK'){
-	#### IMPORT SOURCES ##########################################################
-	# require(raster)
-	# require(xts)
-	# require(doSNOW)
-	# require(zoo)
-	rasterOptions(tmptime = 168,todisk = FALSE, overwrite=TRUE, tolerance = 0.5)
-	
+#' splash.grid(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(rasterTmpFile()),sim.control=list(output.mode="monthly",inmem=FALSE)){
+	###########################################################################
+	# 00. Check if parallel computation is required by the user and if the dimensions of the raster objects match
+	###########################################################################
+	clcheck<-try(getCluster(), silent=TRUE)
+	if(class(clcheck)=="try-error"){
+		# If no cluster is initialized, assume only one core will do the calculations, beginCluster(1) saved me the time of coding serial versions of the functions
+		beginCluster(1,'SOCK')
+		warning('Only using one core, use first beginCluster() if you want to run splash in parallel')
+		
+	}
+	rasterOptions(tolerance = 0.5)
+	compareRaster(sw_in, tc, pn, elev, soil,extent=TRUE, crs=TRUE, res=TRUE, orig=FALSE,rotation=FALSE, values=FALSE, stopiffalse=FALSE, showwarning=TRUE)	
+	type=class(clcheck)[1]
 	###########################################################################
 	# 01. Calculate spatial distributed variables
 	###########################################################################
-	if (type=='MPI'){
-		tmpdir<-'/rdsgpfs/general/ephemeral/user/ds6915/ephemeral/splashtemp'
-	} else {
-		tmpdir<-dirname(rasterTmpFile())
-	}
-	
-	
+		
 	setwd(tmpdir)
 	# get resolution in m2
 	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
@@ -105,7 +116,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			# 3.1. Equilibrate
 			###########################################################################
 			cat("reaching steady state","\n")
-			beginCluster(sim.control$ncores,type=type)
+			# beginCluster(sim.control$ncores,type=type)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq,sim.control$inmem,outdir=tmpdir)
@@ -118,7 +129,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			end<-cumsum(ny)
 			start<-end+1
 			result<-list()
-			beginCluster(sim.control$ncores, type=type)
+			# beginCluster(sim.control$ncores, type=type)
 			cat("reaching steady state","\n")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
@@ -150,14 +161,14 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 	}
 	
 	###########################################################################
-	# 03. Start the calculations for Monthly inputs
+	# 03. Start the calculations if the inputs are monthly
 	###########################################################################
 	
 	else if (abs(as.numeric(time.freq, units = "days"))>20){		
 		
 		if (length(y)==1){
 			cat("reaching steady state","\n")
-			beginCluster(sim.control$ncores, type=type)
+			# beginCluster(sim.control$ncores, type=type)
 			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")
 			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq, sim.control$inmem,outdir=tmpdir)
@@ -169,7 +180,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),sim.control=list
 			end<-cumsum(nm)
 			start<-end-11
 			result<-list()
-			beginCluster(sim.control$ncores, type=type)
+			# beginCluster(sim.control$ncores, type=type)
 			cat("reaching steady state","\n")
 			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
 			cat(paste("solving","year",y[1]),"\n")

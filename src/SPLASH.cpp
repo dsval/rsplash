@@ -606,22 +606,27 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 7.5. Estimate time required to drain upslope recharge [days]
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // TO DO: recalculate volume Au from ti-1 if R<0.0 and correct tdrain
-    double t_drain = 0.0;
+     double t_drain = 0.0;
 
     if((R > 0.0) && (sm > Wmax)){
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         q_in = Q/(Ai*pow(Kb,t_drain));
     } else {
         t_drain = (td -1.0);
-        q_in = 0.0;
+        //q_in = 0.0;
     }
 
-    if( isnan(t_drain)==1 || (t_drain < 0.0)){
+    if( isnan(t_drain)==1 || (t_drain < 0.0)|| (t_drain == 0.0)){
        t_drain = 0.0;
+       q_in = 0.0;
+       qin = 0.0;
     } else if (t_drain >365.0){
         t_drain = 365.0;
     }
-        
+
+    if(isnan(q_in)==1 || (q_in < 0.0)){
+        q_in = 0.0;
+    }    
 
     sm += (q_in-T);
 
@@ -1051,7 +1056,9 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //double Q = (Q_sat+Q_uns)*hyd_grad;
     //double Q = (Q_sat+Q_uns)*0.3;
     double Q = (T*Ai)/1000;
-    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 8. Calculate same day qin from upslope drainage
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
    // TO DO: recalculate volume Au from ti-1 if R<0.0 and correct tdrain
     double t_drain = 0.0;
@@ -1061,15 +1068,20 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         q_in = Q/(Ai*pow(Kb,t_drain));
     } else {
         t_drain = (td -1.0);
-        q_in = 0.0;
+        //q_in = 0.0;
     }
 
-    if( isnan(t_drain)==1 || (t_drain < 0.0)){
+    if( isnan(t_drain)==1 || (t_drain < 0.0)|| (t_drain == 0.0)){
        t_drain = 0.0;
+       q_in = 0.0;
+       qin = 0.0;
     } else if (t_drain >365.0){
         t_drain = 365.0;
     }
-        
+
+    if(isnan(q_in)==1 || (q_in < 0.0)){
+        q_in = 0.0;
+    }    
 
     sm += (q_in-T);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1141,7 +1153,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     //    int y = d.get_year();
     // wn_vec.resize(n, RES);
     vector <double> wn_vec(n,RES);
-    vector <double> ro_vec(n);
+    vector <double> ro_vec(n,0.0);
 	vector <double> snow_vec(n,0.0);
     vector <double> tdrain_vec(n,0.0);
     vector <double> qin_prev_vec(n,0.0);
@@ -1267,6 +1279,7 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     
     // Prepare daily outputs vector
     int n_end = wn_vec.size();
+    //wn_vec.resize(n, 0.0)
     //    int y = d.get_year();
     vector <double> pet_vec(n,0.0);
 	vector <double> aet_vec(n,0.0);
@@ -1309,10 +1322,12 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     }
  
     dsoil.sm = wn_vec[n-1];
+    dsoil.sqout = sqout_vec[n-1];
+    dsoil.swe = snow_vec[n-1];
     
 return List::create(Named("wn") = wn_vec, Named("ro") = ro_vec, Named("pet") = pet_vec, Named("aet") = aet_vec, 
                     Named("snow") = snow_vec, Named("cond") = cond_vec, Named("bflow") = bflow_vec,Named("netr") = netr_vec,
-                    Named("tdrain") = tdrain_vec, Named("qin_prev") = sqout_vec);
+                    Named("qin_prev") = sqout_vec, Named("tdrain") = tdrain_vec);
 }
 
 

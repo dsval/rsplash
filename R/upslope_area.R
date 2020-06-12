@@ -1,14 +1,11 @@
 #' upslope_area
 #'
-#' Computes the upslope area in m2 using topmodel for small areas or Taudem for large
-#' @param   sw_in, lon
-#' @param   tc, lon
-#' @param   pn, lon
-#' @param   elev, lon
-#' @return a matrix xts type
+#' Computes the upslope area in m2 using topmodel for small areas or Taudem for large, corrections acording to latitude done by raster::area
+#' @param   dem
+#' @return a RasterStack with the contributing area per pixel, number of cells draining in, and number of cells draining out
 #' @import topmodel
 #' @import raster 
-#' @keywords splash
+#' @keywords contributing area
 #' @export
 #' @examples
 #' splash.grid()
@@ -47,7 +44,7 @@ upslope_areav2<-function(dem,type,tmpd){
 	
 	writeRaster(dem,"rawdem.tif",format="GTiff", overwrite=TRUE)
 	
-	if(type == 'MPI'){
+	if(type == 'MPIcluster'){
 		# Pitremove
 		system("pitremove -z rawdem.tif -fel dem_nopit.tif")
 		

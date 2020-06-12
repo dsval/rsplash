@@ -1,21 +1,35 @@
-#' splash.point
-#'
-#' Apply splash algorithm
-#' @param   sw_in, lon
-#' @param   tc, lon
-#' @param   pn, lon
-#' @param   elev, lon
-#' @return a matrix xts type
+#' Simple process-led algorithms for simulating habitats (SPLASH v.2.0)
+#' 
+#' R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
+#' 
+#' @param   sw_in Incoming shortwave solar radiation (W m-2), timeseries object of monthly or daily averages.
+#' @param   tc Air temperature (°C), same timestep as sw_in
+#' @param   pn Precipitation (mm), same timestep as sw_in
+#' @param   elev Elevation (m.a.s.l)
+#' @param   slop Terrain feature: slope inclination (°)
+#' @param   asp Terrain feature: slope orientation (°), standard clockwise from 0.0° North
+#' @param   soil_data Soil data organized as a vector in the way: c(sand(%),clay(%),organic matter(%),coarse-fragments-fraction(%), bulk density(g cm-3))
+#' @return a time series matrix including:
+#' \itemize{
+#'         \item \eqn{W_n}: Soil water content within the first 2m of depth (mm).
+#'         \item \eqn{ro}: Runoff (mm d-1).
+#'         \item \eqn{pet}: Potential evapotranspiration (mm d-1).
+#'         \item \eqn{aet}: Actual evapotranspiration (mm d-1).
+#'         \item \eqn{snow}: Snow water equivalent (mm).
+#'         \item \eqn{cond}: Condensation (mm d-1).
+#'         \item \eqn{bflow}: Lateral flow (mm d-1).
+#'         \item \eqn{netr}: Daytime net radiation (MJ d-1).
+#' }
 #' @import Rcpp 
 #' @import xts
-#' @keywords splash
+#' @keywords splash, evapotranspiration, soil moisture
 #' @export
 #' @examples
-#' splash.grid()
-splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution){
-	
-	# require(xts)
-	# Extract time info from data
+#' splash.point(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp,soil_data,Au=0,resolution=250){
+	###########################################################################
+	# 01.Extract time info from the data
+	###########################################################################	
 	# year
 	y<-as.numeric(unique(format(time(pn),'%Y')))
 	# ndays in the year
@@ -28,14 +42,11 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 	# 02. Start the calculations for daily inputs
 	###########################################################################
 	
-	
 	if (time.freq<2){		
 		
 		if (length(y)==1){
 			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
-			
 			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain)
-			# result<-xts(result,ztime)
 			result<-do.call(cbind,result)
 		}
 		else if(length(y)>1){
@@ -43,10 +54,11 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			end<-cumsum(ny)
 			start<-end+1
 			result<-list()
+			# average daily for spin-up
 			sw_av<-tapply(sw_in,format(time(sw_in),"%j"),mean, na.rm=TRUE)
 			tc_av<-tapply(tc,format(time(sw_in),"%j"),mean, na.rm=TRUE)
 			pn_av<-tapply(pn,format(time(sw_in),"%j"),mean, na.rm=TRUE)
-			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
+			
 			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
 			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:ny[1]], tc[1:ny[1]],  pn[1:ny[1]],initial$sm, y[1], initial$snow,
 				soil_data,Au,resolution,initial$qin,initial$tdrain)
@@ -54,7 +66,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			for (i in 2:length(y)){
 				
 				stidx<-i-1
-				# correct for leap years	
+				# correct for leap years inside the c++ code	
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[stidx]:end[i]], tc[start[stidx]:end[i]], pn[start[stidx]:end[i]],
 					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain)
 			}
@@ -65,7 +77,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 		result<-xts(result,ztime)
 	}
 	###########################################################################
-	# 03. Start the calculations for Monthly inputs
+	# 03. Start calculations if the  inputs are monthly 
 	###########################################################################
 	if (time.freq>20){		
 		ztime.days<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="day")
@@ -73,7 +85,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
 			
 			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain)
-			# result<-xts(result,ztime)
+			
 			result<-do.call(cbind,result)
 		}
 		else if(length(y)>1){
@@ -84,7 +96,6 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			sw_av<-tapply(sw_in,format(time(sw_in),"%m"),mean, na.rm=TRUE)
 			tc_av<-tapply(tc,format(time(sw_in),"%m"),mean, na.rm=TRUE)
 			pn_av<-tapply(pn,format(time(sw_in),"%m"),mean, na.rm=TRUE)
-			# initial<-rspin_up(lat,elev, sw_in[1:ny[1]], tc[1:ny[1]], pn[1:ny[1]], slop,asp, y[1],soil_data,Au,resolution)
 			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
 			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:end[1]], tc[1:end[1]],  pn[1:end[1]],initial$sm, y[1], initial$snow,
 				soil_data,Au,resolution,initial$qin,initial$tdrain)
@@ -92,7 +103,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 			for (i in 2:length(y)){
 				
 				stidx<-i-1
-				# correct for leap years	
+				# correct for leap year sinside the c++ code		
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[i]:end[i]], tc[start[i]:end[i]], pn[start[i]:end[i]],
 					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain)
 			}
@@ -112,9 +123,6 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop,asp,soil_data,Au,resolution)
 Rcpp::loadModule("splash_module", TRUE)
 
 
-
-
-
 soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	# Hydrophysics V2
 	# ************************************************************************
@@ -122,33 +130,35 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	# Input:    - float, sand, (percent)
 	#           - float, clay, (percent)
 	#           - float, OM Organic Matter (percent)
-	#           - float,fgravel, (percent-volumetric)
+	#           - float, fgravel, (percent-volumetric)
+	#           - float, bd, bulk density (g/cm3)
 	# Output:   list:
 	#           - float, FC, (volumetric fraction)
 	#           - float, WP (volumetric fraction)
 	#           - float,SAT, (volumetric fraction)
 	#           - float, AWC (volumetric fraction)
-	#           - float,Ksat, Saturate hydraulic conductivity/infiltration capacity(mm/hr)
-	#           - float, A (Coefficient)
-	#           - float, B (Clapp and Hornberger (1978) pore-size distribution index)
+	#           - float,Ksat, Saturate hydraulic conductivity/ min infiltration capacity(mm/hr)
+	#           - float, A, B, Coefficients to fit the 33-1500kPa section of the retention curve from Saxton and Rawls, 2006
+	#           - float, bubbling_p, air entry pressure
+	#           - float, alpha, n, Shape parameters for the van Genuchten equation for water retentin
 	# Features: calculate some soil hydrophysic characteristics
 	# Ref:      Saxton, K.E., Rawls, W.J., 2006. Soil Water Characteristic Estimates 
 	#           by Texture and Organic Matter for Hydrologic Solutions. 
 	#           Soil Sci. Soc. Am. J. 70, 1569. doi:10.2136/sssaj2005.0117
+	#		  Balland, V., Pollacco, J.A.P., Arp, P.A., 2008. Modeling soil hydraulic properties for 
+	#		  a wide range of soil conditions. Ecol. Modell. 219, 300–316. doi:10.1016/j.ecolmodel.2008.07.009
 	# ************************************************************************
 	results<-list()
-	# testing
-	# sand<-60
-	# clay<-30
-	# silt<-100-sand-clay
-	# OM<-10
-	# end test
-	# get fractions 
+	########################################################################################
+	# 01. get fractions
+	######################################################################################## 
 	sand<-sand/100
 	clay<-clay/100
 	OM<-OM/100
 	fgravel<-fgravel/100
-	
+	########################################################################################
+	# 02. calc bulk density [g/cm3] in case it is not provided, assumming 30 cm depth Balland et al. (2008)
+	########################################################################################
 	depth<-30
 	dp<-1/((OM/1.3)+((1-OM)/2.65))
 	
@@ -157,52 +167,53 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 			bd<-(1.5 + (dp-1.5-1.10*(1 - clay))*(1-exp(-0.022*depth)))/(1+6.27*OM)
 		} 
 	}else{
-		if(is.na(bd)){
-			bd<-(1.5 + (dp-1.5-1.10*(1 - clay))*(1-exp(-0.022*depth)))/(1+6.27*OM)
-		} 
-	}
-	
-	
-	
-	
+		bd<-ifelse(is.na(bd),(1.5 + (dp-1.5-1.10*(1 - clay))*(1-exp(-0.022*depth)))/(1+6.27*OM),bd)
+		
+		}
+	########################################################################################
+	# 03. calc volumetric water contents at saturation, 33kPa (fc) and 1500kPa (wp) Balland et al. (2008)
+	######################################################################################## 
+	# volumetric water content at saturation [m3/m3]
 	sat<-1-(bd/dp)
-	
-	# fc<-(sat/bd)*(0.565 + (0.991 - 0.565)*clay^0.5)*exp(-(0.103*sand - 0.785* OM)/(sat/bd))
-	fc<-(sat/bd)*(0.3366685 + (1.417544 - 0.3366685)*clay^0.5)*exp(-1*(0.03320495*sand - 0.2755312* OM)/(sat/bd))
-	# fc<-
+	# volumetric water content at 33kPa [m3/m3]
+	fc<-(sat/bd)*(0.4760944 + (0.9402962 - 0.4760944)*clay^0.5)*exp(-(0.05472678*sand - 0.01* OM)/(sat/bd))
 	fc[fc<0]<-0.1
 	fc[fc>1]<-1
-	
-	wp<- fc*(0.1437904 + (0.8398534 - 0.1437904)*clay^0.5) 
-	
-	L_10_Ksat<- -2.793574+3.12048*log10(dp-bd)+4.358185*sand
+	# volumetric water content at 1500kPa [m3/m3]
+	wp<- fc*(0.2018522 + (0.7809203 - 0.2018522)*clay^0.5) 
+	########################################################################################
+	# 04. calc Saturated hydraulic conductivity Ksat [mm/hr] Balland et al. (2008)
+	######################################################################################## 
+	L_10_Ksat<- -2.653985+3.092411*log10(dp-bd)+4.214627*sand
 	ksat<-10^L_10_Ksat
 	# to mm/h
 	ksat<-ksat*10
-	
-	moist_fvol33init<-0.278*sand+0.034*clay+0.022*OM-0.018*(sand*OM)-0.027*(clay*OM)-0.584*(sand*clay)+0.078
-	moist_fvol33<-moist_fvol33init+(0.636*moist_fvol33init-0.107)
-	
-	# get parameters for BC eqn form SAxton 2006
+	########################################################################################
+	# 05. calc shape parameters water retention Brooks and Corey curve Saxton and Rawls (2006)
+	######################################################################################## 
+	# get parameters for BC eqn form Saxton 2006
 	coef_B<-(log(1500)-log(33))/(log(fc)-log(wp))
 	coef_A<-exp(log(33)+coef_B*log(fc))
 	coef_lambda<-1/coef_B
-	# Ksat<-1930*(SAT_fvol-FC_fvol)^(3-coef_lambda)
-	
+		
+	moist_fvol33init<-0.278*sand+0.034*clay+0.022*OM-0.018*(sand*OM)-0.027*(clay*OM)-0.584*(sand*clay)+0.078
+	moist_fvol33<-moist_fvol33init+(0.636*moist_fvol33init-0.107)
 	bub_init<--21.6*sand-27.93*clay-81.97*moist_fvol33+71.12*(sand*moist_fvol33)+8.29*(clay*moist_fvol33)+14.05*(sand*clay)+27.16
 	bubbling_p<-bub_init+(0.02*bub_init^2-0.113*bub_init-0.7)
 	# 101.97162129779 converts from KPa to mmH2O
 	bubbling_p<-bubbling_p*-101.97162129779
-	# error in empirical fitting, not possible matric potential positive
-	# bubbling_p<-ifelse(bubbling_p>0,bubbling_p*-1,bubbling_p)
-	bubbling_p[bubbling_p>0]<-bubbling_p[bubbling_p>0]*-1
-	# residual water content for BC eqn, Rawls, 1985
+	# If positive pressure: error in empirical fitting, water repelency or positive air entry pressure?? see  Wang et al., 2003, 10.1016/B978-0-444-51269-7.50009-6 :	#assume air entry pressure at the intercept of the log-log retention curve
+	bubbling_p[bubbling_p>0]<-coef_A*-101.97162129779
+	#I still found around n=100 air entry pressures higher than 33kPa using the testing db (n=68567), assume 90% of saturation for those samples
+	#bubpt[bubpt<=-3365.064]<-(33-(33*((sat-fc)/(0.9*sat-fc))))*101.97162129779
+	########################################################################################
+	# 05. calc shape parameters water retention for van Genuchten's curve Rawls (1985)
+	######################################################################################## 
 	sand<-sand*100
 	clay<-clay*100
 	silt<-100-sand-clay
 	OM<-OM*100
-	
-	# Ksat<-10*2.54*10^(-0.6+0.012*sand-0.0064*clay)
+		
 	RES<--0.018+0.0009*sand+0.005*clay+0.029*sat -0.0002*clay^2-0.001*sand*sat-0.0002*clay^2*sat^2+0.0003*clay^2*sat -0.002*sat^2*clay
 	RES[RES<0]<-0.0
 	# parameters for van Genutchen eqn
@@ -227,8 +238,6 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	results$bubbling_p<-bubbling_p
 	results$VG_alpha<-alpha
 	results$VG_n<-n
-	
-	# results$VG_m<-m
 	
 	return(results)
 }
@@ -346,7 +355,7 @@ snowfall_prob<-function(tc,lat,elev){
 	# Output:   
 	#           - float, snowfall occurrence probability
 	
-	# Features: calculate the probability of snowfall occurrence probability, if >0.5, snowfall will occur
+	# Features: calculates the snowfall occurrence probability
 	# Ref:      Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., 2018. Spatial variation of the 
 	# 		  rain-snow temperature threshold across the Northern Hemisphere. Nat. Commun. 9, 1–9. doi:10.1038/s41467-018-03629-7
 	# ************************************************************************
@@ -357,20 +366,19 @@ snowfall_prob<-function(tc,lat,elev){
 rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolution) {
 	
 	# ************************************************************************
-	# Name:     spin_up
-	# Inputs:   - list, meteorological data (mdat)
-	#               $num_lines ..... double, length of meteorol. variable lists
-	#               $lat_deg ....... double latitude (degrees)
-	#               $elev_m ......... double, elevation (m)
-	#               $year .......... double, year
-	#               $sw_in ............ list, fraction of sunshine hours
-	#               $tair .......... list, mean daily air temperature (deg. C)
-	#               $pn ............ list, precipitation (mm/d)
-	#           - list, daily totals (dtot)
-	#               $wm ............ list, daily soil moisture (mm)
-	# Returns:  list, daily totals
-	# Features: Updates the soil moisture in daily totals until equilibrium
-	# Depends:  quick_run
+	# Name:     rspin_up
+	# Inputs:   - vectors, forcing data
+	#               lat ....................... double latitude (degrees)
+	#               elev ...................... double, elevation (m)
+	#               y ......................... int, year
+	#               sw_in ..................... double, shortwave radiation
+	#               tc ........................ double, mean daily air temperature (deg. C)
+	#               pn ........................ double, precipitation (mm/d)
+	#               soil_data ................. double, inputs for soil_hydro
+	#               slope, asp, Au ............ double, terrain info
+	# Returns:  list, daily fluxes and storages at steady state
+	# Features: Wrapper of the c++ function, updates soil moisture and snow water equivalent until equilibrium
+	# Depends:  soil_hydro, snowfall_prob, frain_func
 	# ************************************************************************
 	# get number of days in the year y
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
@@ -410,7 +418,6 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	my_splash = new(SPLASH, lat, elev)
 	# run spin up
 	result<-my_splash$spin_up(as.integer(ny), as.integer(y), as.numeric(sw_in), as.numeric(tc),as.numeric(pn),slop,asp,as.numeric(snowfall),soil_info)
-	# result<-my_splash$spin_up(as.integer(ny), as.integer(y), as.numeric(sw_av), as.numeric(tc_av),as.numeric(pn_av),slop,asp,as.numeric(snowfall),soil_info)
 	
 	return(result)
 }
@@ -418,26 +425,23 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,Au,resolution,qin,td) {
 	# ************************************************************************
 	# Name:     run_one_year
-	# Inputs:   - double, latitude, deg (lat)
-	#           - double, elevation, m (elev)
-	#           - double, day of year (n)
-	#           - double, year (y)
-	#           - double, daily soil moisture content, mm (wn)
-	#           - double, daily fraction of bright sunshine (sw_in)
-	#           - double, daily air temperature, deg C (tc)
-	#           - double, daily precipitation, mm (pn)
-	# Returns:  list
-	#             $ho - daily solar irradiation, J/m2
-	#             $hn - daily net radiation, J/m2
-	#             $ppfd - daily PPFD, mol/m2
-	#             $cond - daily condensation water, mm
-	#             $eet - daily equilibrium ET, mm
-	#             $pet - daily potential ET, mm
-	#             $aet - daily actual ET, mm
-	#             $wn - daily soil moisture, mm
-	#             $ro - daily runoff, mm
-	# Features: Runs SPLASH at a single location/pixel for one year.
-	# Depends:  run_one_day
+	# Inputs:   - vectors, forcing data
+	#               lat ....................... double latitude (degrees)
+	#               elev ...................... double, elevation (m)
+	#               y ......................... int, year
+	#               sw_in ..................... double, shortwave radiation
+	#               tc ........................ double, mean daily air temperature (deg. C)
+	#               pn ........................ double, precipitation (mm/d)
+	#               soil_data ................. double, inputs for soil_hydro
+	#               slope, asp, Au ............ double, terrain info
+	#               resolution ................ double, length of the cell (m) used to compute upslope area
+	#               snow ...................... double, Snow water equivalent from the previous year
+	#               wn ........................ double, soil water content from the previous year
+	#               qin ....................... double, lateral flow input from upslope (mm/d)
+	#               td ........................ double, time until drainage from upslope ceases (d)
+	# Returns:  list, daily fluxes and storages for the year y
+	# Features: Wrapper of the c++ function
+	# Depends:  soil_hydro, snowfall_prob, frain_func
 	# ************************************************************************
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 	if(length(sw_in)==12){sw_in<-avg.interp(sw_in,y)}
@@ -489,7 +493,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	pn<-pn*f_rain
 	# initialize c++ program
 	my_splash = new(SPLASH, lat, elev)
-	# run spin up
+	# run splash for one year
 	
 	daily_totals<-my_splash$run_one_year(as.integer(ny), as.integer(y),as.numeric(sw_in),as.numeric(tc),as.numeric(pn),as.numeric(wn),slop,asp,as.numeric(snow),as.numeric(snowfall),soil_info,as.numeric(qin),as.numeric(td))
 	return(daily_totals)
