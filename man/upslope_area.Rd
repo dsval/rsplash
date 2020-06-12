@@ -7,21 +7,16 @@
 upslope_area(dem)
 }
 \arguments{
-\item{sw_in, }{lon}
-
-\item{tc, }{lon}
-
-\item{pn, }{lon}
-
-\item{elev, }{lon}
+\item{dem}{}
 }
 \value{
-a matrix xts type
+a RasterStack with the contributing area per pixel, number of cells draining in, and number of cells draining out
 }
 \description{
-Computes the upslope area in m2 using topmodel for small areas or Taudem for large
+Computes the upslope area in m2 using topmodel for small areas or Taudem for large, corrections acording to latitude done by raster::area
 }
 \examples{
 splash.grid()
 }
-\keyword{splash}
+\keyword{area}
+\keyword{contributing}
