@@ -10,10 +10,7 @@
 #' @examples
 #' splash.grid()
 upslope_area<-function(dem){
-	# require(raster)
-	#setwd(tmpdir)
-	# require(topmodel)
-	# rasterOptions(maxmemory=3e7, timer=FALSE, tmptime = 24, chunksize = 3e7,todisk=FALSE, overwrite=TRUE)
+
 	resolution<-sqrt(cellStats(area(dem), stat='mean', na.rm=TRUE))*1000
 	elev<-sinkfill(raster::as.matrix(dem),resolution,1)
 	elev<-raster(elev)
@@ -30,9 +27,28 @@ upslope_area<-function(dem){
 	flowdir<-terrain(elev,opt='flowdir')
 	ncellin<-ncellflow(flowdir,inout='in',met='top',filename="ncellin.grd",overwrite=TRUE)
 	ncellout<-ncellflow(flowdir,inout='out',met='top',filename="ncellout.grd",overwrite=TRUE)
+	upflow<-terrain(elev*-1,opt='flowdir')
+	hg_sl<-tan(terrain(elev,opt='slope', unit='radians'))
 	rm(elev)
 	gc()
-	# return(areacatch)
+	# funct to extract the average upslope hydraulic gradient
+	# calc_hg_path<-function(cell,fd,hg_local){
+	# 	path<- flowPath(fd, cell)
+	# 	if(is.null(path)){
+	# 		return(NA)
+	# 	}else{
+	# 		hg<-.Internal(mean(extract(hg_local,path)))
+	# 		return(hg)
+	# 	}
+	# }
+	# 	
+	# parallel:::clusterExport(getCluster(), c('calc_hg_path','upflow','hg_sl'),envir=environment()) 
+	# 
+	# hg_values<-parallel::clusterMap(cl = getCluster(), fun=calc_hg_path, cell=1:ncell(upflow),MoreArgs = list(fd=upflow,hg_local=hg_sl),SIMPLIFY = T)
+	# 
+	# hg<-raster(dem)
+	# hg<-setValues(hg,hg_values)
+	
 	return(stack(areacatch,ncellin,ncellout))
 	
 }
@@ -41,7 +57,7 @@ upslope_areav2<-function(dem,type,tmpd){
 	# require(raster)
 	# Set working directory to your location
 	setwd(tmpd)
-	
+	resolution<-sqrt(cellStats(area(dem), stat='mean', na.rm=TRUE))*1000
 	writeRaster(dem,"rawdem.tif",format="GTiff", overwrite=TRUE)
 	
 	if(type == 'MPIcluster'){
@@ -64,12 +80,34 @@ upslope_areav2<-function(dem,type,tmpd){
 			
 	ups_ncell<-raster("dem_a_ac.tif")
 	flowdir<-raster("dem_p.tif")
+	hg_sl<-raster('dem_sd8.tif')
+	hg_sl[hg_sl==0]<-0.001
 	area_p_cell<-area(ups_ncell)
 	ups_area<-overlay(ups_ncell, area_p_cell, fun=function(x,y){(x*y*1e6)},filename="areacatch.grd",overwrite=TRUE)
 	ncellin<-ncellflow(flowdir,inout='in',met='tau',filename="ncellin.grd",overwrite=TRUE)
 	ncellout<-ncellflow(flowdir,inout='out',met='tau',filename="ncellout.grd",overwrite=TRUE)
+	# upflow<-terrain(raster("dem_nopit.tif")*-1,opt='flowdir')
+	# # funct to extract the average upslope hydraulic gradient
+	# calc_hg_path<-function(cell,fd,hg_local){
+	# 	path<- flowPath(fd, cell)
+	# 	if(is.null(path)){
+	# 		return(NA)
+	# 	}else{
+	# 		hg<-.Internal(mean(extract(hg_local,path)))
+	# 		return(hg)
+	# 	}
+	# }
+	# 
+	# parallel:::clusterExport(getCluster(), c('calc_hg_path','upflow','hg_sl'),envir=environment()) 
+	# 
+	# hg_values<-parallel::clusterMap(cl = getCluster(), fun=calc_hg_path, cell=1:ncell(upflow),MoreArgs = list(fd=upflow,hg_local=hg_sl),SIMPLIFY = T)
+	# 
+	# hg<-raster(dem)
+	# hg<-setValues(hg,hg_values)
+	# hg<-log((ups_area)/hg_sl)
+		
 	return(stack(ups_area,ncellin,ncellout))
-	# return(ups_area)
+	
 	
 }
 

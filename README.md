@@ -1,6 +1,18 @@
 ## Overview
 
-`rsplash` is the R implementation of the 
+`rsplash` is the R implementation of the Simple process-led algorithms for simulating habitats (SPLASH v.2.0), which comprises robust formulations to compute energy and water fluxes. This R package, wrapping the C++ code, is intended to provide simulations either at site-scale or spatially-distributed, when the grid functionality is used. For reference, the code of the original v.1.0  (Davis et a., 2017) is hosted here: https://bitbucket.org/labprentice/splash/src/master/.
+
+## What's new
+- Shortwave radiation as input instead of cloudiness.
+- Terrain effects on the analytical integrals of the daily energy fluxes.
+- Daily infiltration as an analytical integral of the Green-Amp model with corrections for slope.
+- Dunne and/or Hortonian runoff generation.
+- Analytical solutions for lateral flow and soil water content at any depth (max 2m. at the moment).
+- Soil hydrophysical properties estimated by using globally recalibrated pedotransfer functions.
+- Maximum water retention in the soil-column computed by equilibrating gravity pushing down and capillarity pulling up.
+- Water viscosity effects on the hydraulic conductivity.
+- Implementation of empirical formulations (from global studies) for snowfall ocurrence and rainfall/snowfall fraction.
+- Snowpack balance calculations.
 
 ## Installation
 To install the development release  of the `rsplash` package please run: 
@@ -21,16 +33,19 @@ run1<-splash.point(
 	pn= Bourne$forcing[,1],		# precipitation mm
 	lat=Bourne$md$latitude,		# latitude deg
 	elev=Bourne$md$elev_m,		# elevation masl
-	slop=Bourne$md$slop_250m,	# slope deg
+	slop=Bourne$md$slop_250m,	# slope* deg 
 	asp=Bourne$md$asp_250m,		# aspect deg
-	soil_data=Bourne$soil, 		# soil data: sand,clay,som,garvel, all in %: bulk density g/cm3
+	soil_data=Bourne$soil, 		# soil data: sand,clay,som,gravel, all in %; bulk density g/cm3 and depth** (m)
 	Au=Bourne$md$Aups_250m,		# upslope area m2
-	resolution=250.0  			# resolution pixel dem used to get Au
+	resolution=250.0  			# resolution of the dem used to get Au
 )
+#*NOTE: if slop=0.0 (flat surface) the lateral flow is assumed negligible, so: asp,Au and resolution can be ommitted, it won't affect the calculations since all the fluxes are assumed vertical.
+#**Soil column thickness
+
 # plot the snow water equivalent
 plot(Bourne$forcing[,4],main='SWE (mm)');lines(run1[,5],col=2,lwd=2)
 
-#To compare the simulations of soil water content (mm) with measurements usually taken up to a certain depth:
+#Compare the simulations of soil water content (mm) with measurements taken up to Bourne$max_depth_sm:
 
 # get the water content in the measured region of the profile
 swc<-unSWC(soil_data = Bourne$soil, uns_depth = Bourne$max_depth_sm,wn = run1[,1])

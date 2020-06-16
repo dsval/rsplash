@@ -29,11 +29,12 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###########################################################################
 	# 00. Check if parallel computation is required by the user and if the dimensions of the raster objects match
 	###########################################################################
+	on.exit(endCluster())
 	clcheck<-try(getCluster(), silent=TRUE)
 	if(class(clcheck)=="try-error"){
 		# If no cluster is initialized, assume only one core will do the calculations, beginCluster(1) saved me the time of coding serial versions of the functions
 		beginCluster(1,'SOCK')
-		warning('Only using one core, use first beginCluster() if you want to run splash in parallel')
+		message('Only using one core, use first beginCluster() if you want to run splash in parallel!!')
 		
 	}
 	rasterOptions(tolerance = 0.5)
@@ -148,7 +149,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 				stidx<-i-1
 				result[[i]]<-run_one_year.grid(sw_in[[start[stidx]:end[i]]], tc[[start[stidx]:end[i]]], pn[[start[stidx]:end[i]]],result[[stidx]]$wn,
 					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$q_in,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
-				setTxtProgressBar(pb,i)				
+				setTxtProgressBar(pb,i)
+				cat("...","\n")				
 			}
 			close(pb)
 			# endCluster()
@@ -204,6 +206,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$q_in,result[[stidx]]$tdrain,sim.control$inmem,outdir=tmpdir)
 				
 				setTxtProgressBar(pb,i)
+				cat("...","\n")
 				
 			}
 			close(pb)
@@ -277,10 +280,10 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 			cl <- getCluster()
 			on.exit( returnCluster() )
 			nodes <- length(cl)
-			bs <- blockSize(x, minblocks=nodes*10)
+			bs <- blockSize(x, minblocks=nodes)
 			parallel:::clusterExport(cl, c('x','func','indmonth','bs'),envir=environment()) 
 			pb <- pbCreate(bs$n)
-			pb <- txtProgressBar(min=1,max = bs$n, style = 1)
+			pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 1)
 			###############################################################################################
 			# 02. create the functions to send to the workers, split the data in chunks
 			###############################################################################################	
@@ -454,10 +457,10 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	on.exit( returnCluster() )
 	nodes <- length(cl)
 	message('Using cluster with ', nodes, ' nodes')
-	bs <- blockSize(sw_in, minblocks=nodes*10)
+	bs <- blockSize(sw_in, minblocks=nodes)
 	parallel:::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
-	pb <- txtProgressBar(min=1,max = bs$n, style = 3)
+	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 3)
 	###############################################################################################
 	# 02. create the functions to send to the workers, split the data in chunks
 	###############################################################################################	
@@ -607,10 +610,10 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	cl <- getCluster()
 	on.exit( returnCluster() )
 	nodes <- length(cl)
-	bs <- blockSize(sw_in, minblocks=nodes*10)
+	bs <- blockSize(sw_in, minblocks=nodes)
 	parallel:::clusterExport(cl, c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bf_in', 'tdin','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
-	pb <- txtProgressBar(min=1,max = bs$n, style = 1)
+	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 1)
 	###############################################################################################
 	# 02. create the functions to send to the workers, split the data in chunks
 	###############################################################################################	

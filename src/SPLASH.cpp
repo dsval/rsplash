@@ -189,6 +189,14 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
+    // define hydraulic gradient 
+    double hyd_grad = (dtan(slop));
+    //if(isnan(soil_info[12])==1 ){
+    //    hyd_grad = (dtan(slop));
+    //} else{
+    //    hyd_grad = soil_info[12];
+    //}
+    
     double theta_s = SAT/(depth *1000.0);
     double theta_r = RES/(depth *1000.0);
     double theta_fc = FC/(depth *1000.0);
@@ -203,8 +211,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
         theta_i = theta_wp + 0.001;
     }
     double alph = 4.0 + 2.0*lambda;
-    // 7.1. assume hydraulic gradient as the slope
-    double hyd_grad = (dtan(slop));
+   
     // assuming octogonal cells, ncells draining will have n octagon sides of length[m]:
     double sid_oct = sqrt(Ai/(2.0*(1+sqrt(2.0))));
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -611,6 +618,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     if((R > 0.0) && (sm > Wmax)){
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         q_in = Q/(Ai*pow(Kb,t_drain));
+        t_drain=max(t_drain,(td -1.0));
     } else {
         t_drain = (td -1.0);
         //q_in = 0.0;
@@ -621,7 +629,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
        q_in = 0.0;
        qin = 0.0;
     } else if (t_drain >365.0){
-        t_drain = 365.0;
+        t_drain = 366.0;
     }
 
     if(isnan(q_in)==1 || (q_in < 0.0)){
@@ -677,13 +685,14 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     }       
     
     
-   
+   double qin_nday = 0.0;
+   qin_nday = max(qin*Kb,q_in);
     
     
     dsm.sm = sm;
     dsm.ro = ro;
     dsm.swe = snow;
-    dsm.sqout = max(qin*Kb,q_in);
+    dsm.sqout = qin_nday;
     dsm.tdr = t_drain;
     
    
@@ -738,6 +747,14 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
+     // define hydraulic gradient 
+    double hyd_grad = (dtan(slop));
+    //if(isnan(soil_info[12])==1 ){
+    //    hyd_grad = (dtan(slop));
+    //} else{
+    //    hyd_grad = soil_info[12];
+    //}
+
     double theta_s = SAT/(depth *1000.0);
     double theta_r = RES/(depth *1000.0);
     double theta_fc = FC/(depth *1000.0);
@@ -752,8 +769,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         theta_i = theta_wp + 0.001;
     }
     double alph = 4.0 + 2.0*lambda;
-    // 7.1. assume hydraulic gradient as the slope
-    double hyd_grad = (dtan(slop));
+   
     // assuming octogonal cells, ncells draining will have n octagon sides of length[m]:
     double sid_oct = sqrt(Ai/(2.0*(1+sqrt(2.0))));
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1066,6 +1082,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     if((R > 0.0) && (sm > Wmax)){
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         q_in = Q/(Ai*pow(Kb,t_drain));
+        t_drain=max(t_drain,(td -1.0));
     } else {
         t_drain = (td -1.0);
         //q_in = 0.0;
@@ -1076,7 +1093,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
        q_in = 0.0;
        qin = 0.0;
     } else if (t_drain >365.0){
-        t_drain = 365.0;
+        t_drain = 366.0;
     }
 
     if(isnan(q_in)==1 || (q_in < 0.0)){
@@ -1098,14 +1115,15 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         sm = RES;
     }       
     
-    
+    double qin_nday = 0.0;
+    qin_nday = max(qin*Kb,q_in);
             
 
     dsoil.sm = sm;
     dsoil.ro = ro;
     dsoil.swe = snow;
     dsoil.bflow = T;
-    dsoil.sqout = max(qin*Kb,q_in); 
+    dsoil.sqout = qin_nday; 
     dsoil.tdr = t_drain;
 
        
