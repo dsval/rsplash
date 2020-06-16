@@ -11,7 +11,7 @@
 - Soil hydrophysical properties estimated by using globally recalibrated pedotransfer functions.
 - Maximum water retention in the soil-column computed by equilibrating gravity pushing down and capillarity pulling up.
 - Water viscosity effects on the hydraulic conductivity.
-- Implementation of empirical formulations (from global studies) for snowfall ocurrence and rainfall/snowfall fraction.
+- Implementation of empirical formulations (from global studies) to estimate snowfall occurrence and rainfall/snowfall fractions.
 - Snowpack balance calculations.
 
 ## Installation
