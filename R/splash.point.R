@@ -26,7 +26,7 @@
 #' @export
 #' @examples
 #' splash.point(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
-splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp,soil_data,Au=0,resolution=250){
+splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resolution=250){
 	###########################################################################
 	# 01.Extract time info from the data
 	###########################################################################	

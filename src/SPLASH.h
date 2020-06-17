@@ -97,7 +97,7 @@ class SPLASH {
         double dsin(double x);
         double dtan(double x);
         double moist_surf(double depth,double z,double bub_p,double wn,double SAT,double RES,double lambda);
-        double inf_GA(double bub_press,double theta_i,double Ksat,double SAT,double lambda,double P,double td,double slop);
+        double inf_GA(double bub_press,double theta_i,double Ksat,double SAT,double lambda,double P,double tdur,double slop);
         double get_wtd(double wn, double depth, double bub_press,double theta_s,double theta_r,double lambda);
         double get_lat();
         double get_elv();
