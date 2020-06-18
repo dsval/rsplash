@@ -22,7 +22,7 @@ devtools::install_github( "dsval/rsplash")
 ```
 ## Example
 This example runs splash with data from one station of the SNOTEL network (https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=361)
-*Soil Water content here (SWC (mm)) is defined as the accumulated soil moisture $\theta$ (v/v) from all the measured depth intervals.
+*Soil Water content here (SWC (mm)) is defined as the accumulated soil moisture &theta;<sub>i</sub> (v/v) from all the measured depth intervals.
 ```r
 library(rsplash)
 # load some data
