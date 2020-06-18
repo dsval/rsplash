@@ -74,7 +74,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 			result<-do.call(rbind,result)
 			
 		}
-		result<-xts(result,ztime)
+		result<-xts(result[,1:9],ztime)
 	}
 	###########################################################################
 	# 03. Start calculations if the  inputs are monthly 
@@ -111,10 +111,21 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 			result<-do.call(rbind,result)
 			
 		}
-		result<-xts(result,ztime.days)
+		result<-xts(result[,1:9],ztime.days)
 	}
-	
-			
+	####################################################################################################
+	# 4. compute soil moisture limitations
+	####################################################################################################
+	#get the wilting point and bucket size in mm
+	soil_water<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
+	wp<-soil_water$WP*soil_data[6]*1000
+	KWm<-soil_water$AWC*soil_data[6]*1000
+	#get relative soil moisture limitation from 0.0 (at WP) to 1.0 (at FC)
+	soil_lim<-(result$wn-wp)/KWm
+	#adjust the boundaries, wn goes from ~WP to SAT
+	soil_lim[soil_lim<0]<-0
+	soil_lim[soil_lim>1]<-1
+	result$sm_lim<-soil_lim		
 	return(result)
 }
 
