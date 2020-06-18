@@ -459,8 +459,11 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
      double Kb = exp((Q_q0-Q_qs)/((SAT-WP)*(Ai/1000.0)));
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 5.2.2. Estimate Transmitance at the beggining of the day
+    // 5.2.2. Estimate minimum theoretical drainage ~at  field capacity Wmax
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // define theta_i from Wmax
+    Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    theta_i = (Wmax)/(depth*1000.0);
     // calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
     // calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
@@ -486,7 +489,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // total transmitance at initial soil moisture wn
     double To = (To_sat+To_uns)*hyd_grad;
     // total Qo
-     double Qo = (Qo_sat+Qo_uns)*hyd_grad;
+     double Qt = (Qo_sat+Qo_uns)*hyd_grad;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.2.3. Estimate q_in from upslope - previous day [mm/day]
@@ -594,10 +597,11 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
         // calc theoretical time to drain out the area upslope at the current transmittance
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         // using the usual decaying drainage eqn Q_t=Q_o Kb^t, how muchs is the initial input?
-        q_in_f = Q/(Ai*pow(Kb,t_drain));
+        q_in_f = Qt/(Ai*pow(Kb,t_drain));
        
     }    
-    tdrain_out = max({td, t_drain, 0.0});
+    
+    tdrain_out = max((td+t_drain)/2, 0.0);
  
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.8. Update soil moisture
@@ -615,7 +619,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
     //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max({q_in_o, q_in_f, 0.0});
+    qin_nday = max((q_in_o + q_in_f), 0.0);
     
     dsm.sm = sm;
     dsm.ro = ro;
@@ -839,8 +843,11 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
      double Kb = exp((Q_q0-Q_qs)/((SAT-WP)*(Ai/1000.0)));
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 5.2.2. Estimate Transmitance at the beggining of the day
+    // 5.2.2. Estimate minimum theoretical drainage ~at  field capacity Wmax
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // define theta_i from Wmax
+    Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    theta_i = (Wmax)/(depth*1000.0);
     // calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
     // calculate the thickness ot the saturated section of the soil column as: depth - wtd (m)
@@ -866,10 +873,10 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // total transmitance at initial soil moisture wn
     double To = (To_sat+To_uns)*hyd_grad;
     // total Qo
-     double Qo = (Qo_sat+Qo_uns)*hyd_grad;
+     double Qt = (Qo_sat+Qo_uns)*hyd_grad;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 5.2.3. Estimate q_in from upslope - previous day [mm/day]
+    // 5.2.3. Estimate q_in from upslope - from previous storms [mm/day]
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     double q_in_o = 0.0; 
     // if time to drain completely = 0
@@ -974,10 +981,10 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         // calc theoretical time to drain out the area upslope at the current transmittance
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         // using the usual decaying drainage eqn Q_t=Q_o Kb^t, how muchs is the initial input?
-        q_in_f = Q/(Ai*pow(Kb,t_drain));
+        q_in_f = Qt/(Ai*pow(Kb,t_drain));
        
     }    
-    tdrain_out = max({td, t_drain, 0.0});
+    tdrain_out = max((td+t_drain)/2, 0.0);
  
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.8. Update soil moisture
@@ -995,7 +1002,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
     //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max({q_in_o, q_in_f, 0.0});
+    qin_nday = max((q_in_o + q_in_f), 0.0);
             
 
     dsoil.sm = sm;
