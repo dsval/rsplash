@@ -396,6 +396,7 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
 	if(length(Au)==1){
+		#if there is no information on how many cell drain to this point, assume 2 octogonal cells in 1 cell out
 		ncellin<-2
 		ncellout<-1
 		soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
@@ -409,7 +410,7 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence
 	p_snow<-snowfall_prob(tc,lat,elev)
-	# 2. get the treshold for snowfall occurrence
+	# 2. get the threshold for snowfall occurrence
 	Tt<-max(tc[p_snow>=0.5])
 	# 3. get the fraction of precipitation falling as rain
 	f_rain<-ifelse(p_snow>=0.5,frain_func(tc,Tt,13.3,y)[[1]],1)
@@ -446,19 +447,23 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	# Depends:  soil_hydro, snowfall_prob, frain_func
 	# ************************************************************************
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
+	#interpolate if inputs are monthly
 	if(length(sw_in)==12){sw_in<-avg.interp(sw_in,y)}
 	if(length(tc)==12){tc<-avg.interp(tc,y)}
 	if(length(pn)==12){pn<-cum.interp(pn,y)}
 	if(length(wn)==12){wn<-avg.interp(wn,y)}
-	
+	#correct vector length for leap years
 	if(length(wn)>length(pn)){
 		wn<-wn[1:length(pn)]
 		snow<-snow[1:length(pn)]
+		qin<-qin[1:length(pn)]
+		td<-td[1:length(pn)]
 	}else if(length(wn)<length(pn)){
 		wn<-c(wn,wn[length(wn)])
 		snow<-c(snow,snow[length(snow)])
+		qin<-c(qin,qin[length(qin)])
+		td<-c(td,td[length(td)])
 	}
-	
 	
 	# get soil hydrophysical characteristics
 	soil_info<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
@@ -470,6 +475,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
 	if(length(Au)==1){
+		#if there is no information on how many cell drain to this point, assume 2 octogonal cells in 1 cell out
 		ncellin<-2
 		ncellout<-1
 		soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
@@ -481,7 +487,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	# define snowfall occurrence:
 	# 1. get snowfall probability of occurrence
 	p_snow<-snowfall_prob(tc,lat,elev)
-	# 3. get the treshold for snowfall occurrence
+	# 3. get the threshold for snowfall occurrence
 	if(length(tc[p_snow>=0.5])>=1){
 		Tt<-max(tc[p_snow>=0.5])	
 	}else{

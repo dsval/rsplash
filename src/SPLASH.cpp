@@ -493,7 +493,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     double q_in_o = 0.0; 
     // if time to drain completely = 0
-    if( (td == 0.0) || (qin < 0.0) ){ 
+    if( (td <= 0.0)  || (qin <= 0.0) ){ 
       q_in_o = 0.0;
     } else {
     // decaying input from upslope from the previous day times Kb^t, with t=1    
@@ -585,51 +585,37 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.7. Calculate same day input q_in_f from upslope drainage
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     // calc theoretical time to drain out the area upslope at the current transmittance
     double t_drain = 0.0;
     double tdrain_out=0.0;
     double q_in_f = 0.0;
+    td -= 1.0;
 
     if((R > 0.0) && (sm > Wmax)){
+        // calc theoretical time to drain out the area upslope at the current transmittance
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         // using the usual decaying drainage eqn Q_t=Q_o Kb^t, how muchs is the initial input?
         q_in_f = Q/(Ai*pow(Kb,t_drain));
-        // is the current input lower than the input from the previous day?
-        tdrain_out=((td -1.0)+t_drain)/2.0;
-    } else {
-        tdrain_out = (td -1.0);
-    }
-
-    if( isnan(tdrain_out)==1 || (tdrain_out < 0.0)|| (tdrain_out == 0.0)){
-       // the upslope area finishes draining on the current day
-       tdrain_out = 0.0;
-       q_in_f = 0.0;
-      
-    } else if (tdrain_out >366.0){
-        //really low values of q_in cause this, still need to be fixed
-        tdrain_out = 366.0;
-    }
-
-    if(isnan(q_in_f)==1 || (q_in_f < 0.0)){
-        q_in_f = 0.0;
+       
     }    
-    
+    tdrain_out = max({td, t_drain, 0.0});
+ 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.8. Update soil moisture
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     sm += (q_in_f-T);
     //sm -= (T);
-    
-
-    // failsafe for low water contents or big storms
+        // failsafe for low water contents or big storms
     if (sm > SAT){
         sm = SAT;
     } else if (sm < RES) {
         sm = RES;
-    }       
-    
+    } 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 5.9. Calc next day input
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
+    //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max(q_in_f,q_in_o);
+    qin_nday = max({q_in_o, q_in_f, 0.0});
     
     dsm.sm = sm;
     dsm.ro = ro;
@@ -660,11 +646,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 0. Set meteorological variable do not touch!:
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     precip = pn;
-    dsoil.sm = 0.0;
-    dsoil.ro = 0.0;
-    dsoil.swe = 0.0;
-    dsoil.sqout = 0.0;
-    dsoil.tdr = 0.0;
+   
     //************************************************************************/
     // 00. Preprocess - Define inputs
     //************************************************************************/
@@ -891,7 +873,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     double q_in_o = 0.0; 
     // if time to drain completely = 0
-    if( (td == 0.0)  || (qin < 0.0) ){ 
+    if( (td <= 0.0)  || (qin <= 0.0) ){ 
       q_in_o = 0.0;
     } else {
     // decaying input from upslope from the previous day times Kb^t, with t=1    
@@ -983,52 +965,37 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.7. Calculate same day input q_in_f from upslope drainage
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    // calc theoretical time to drain out the area upslope at the current transmittance
     double t_drain = 0.0;
     double tdrain_out=0.0;
     double q_in_f = 0.0;
+    td -= 1.0;
 
     if((R > 0.0) && (sm > Wmax)){
+        // calc theoretical time to drain out the area upslope at the current transmittance
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         // using the usual decaying drainage eqn Q_t=Q_o Kb^t, how muchs is the initial input?
         q_in_f = Q/(Ai*pow(Kb,t_drain));
-        // is the current input lower than the input from the previous day?
-        tdrain_out=((td -1.0)+t_drain)/2;
-    } else {
-        tdrain_out = (td -1.0);
-    }
-
- /*    if( isnan(tdrain_out)==1 || (tdrain_out <= 0.0)){
-       // the upslope area finishes draining on the current day
-       tdrain_out = 0.0;
-       q_in_f = 0.0;
-      
-    } else if (tdrain_out >366.0){
-        //really low values of q_in cause this, still need to be fixed
-        tdrain_out = 366.0;
-    }
-
-    if(isnan(q_in_f)==1 || (q_in_f < 0.0)){
-        q_in_f = 0.0;
-    }     */
-    
+       
+    }    
+    tdrain_out = max({td, t_drain, 0.0});
+ 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.8. Update soil moisture
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     sm += (q_in_f-T);
     //sm -= (T);
-    
-
-    // failsafe for low water contents or big storms
+        // failsafe for low water contents or big storms
     if (sm > SAT){
         sm = SAT;
     } else if (sm < RES) {
         sm = RES;
-    }       
-    
+    } 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 5.9. Calc next day input
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
+    //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max(q_in_f,q_in_o);
+    qin_nday = max({q_in_o, q_in_f, 0.0});
             
 
     dsoil.sm = sm;
@@ -1206,25 +1173,28 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
      // Prepare daily outputs vector
     int n_end = 0;
     n_end = sw_in.size();
-    double wn = 0.0;  // previous day's soil moisture, mm
-    double swe = 0.0;  // previous day's swe, mm
-    double qin = 0.0;  // previous day's drainage
-    double td = 0.0;   // days left to drain the area upslope
     smr dsoil;    // daily soil moisture and runoff
+    double wn ; // previous day's soil moisture, mm
+    double swe ; // previous day's swe, mm
+    double qin;// previous day's drainage
+    double td ; // days left to drain the area upslope
      
     
-    //wn_vec.resize(n, 0.0)
+   
     //    int y = d.get_year();
     vector <double> pet_vec(n,0.0);
 	vector <double> aet_vec(n,0.0);
     vector <double> cond_vec(n,0.0);
     vector <double> ro_vec(n,0.0);
-    vector <double> snow_vec(n,0.0);
+    //vector <double> snow_vec(n,0.0);
     vector <double> bflow_vec(n,0.0);
-    vector <double> sqout_vec(n,0.0);
+    // vector <double> sqout_vec(n,0.0);
     vector <double> netr_vec(n,0.0);
-    vector <double> tdrain_vec(n,0.0);
-    //vector <double> sm_vec(n,0.0);
+    // vector <double> tdrain_vec(n,0.0);
+    //wn_vec.insert (wn_vec.end(), wn)
+    //snow.resize(n, swe);
+    //qin_vec.resize(n, qin);
+    // td_vec.resize(n, td);
     // Run one year:
     
    for (int i=0; i<n; i++){
@@ -1236,18 +1206,18 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
             td = td_vec[(n_end-1)];
         } else {
             wn = wn_vec[(i-1)];
-            swe = snow_vec[(i-1)];
-            qin = sqout_vec[(i-1)];
-            td = tdrain_vec[(i-1)];
+            swe = snow[(i-1)];
+            qin = qin_vec[(i-1)];
+            td = td_vec[(i-1)];
         }
 
         // Calculate soil moisture and runoff
         run_one_day((i+1), y, wn, sw_in[i], tair[i],pn[i], dsoil, slop, asp, swe, snowfall[i], soil_info, qin, td);
         
-        sqout_vec[i] = dsoil.sqout;
-        tdrain_vec[i] = dsoil.tdr;
+        qin_vec[i] = dsoil.sqout;
+        td_vec[i] = dsoil.tdr;
         wn_vec[i] = dsoil.sm;
-        snow_vec[i] = dsoil.swe;
+        snow[i] = dsoil.swe;
         ro_vec[i] = dsoil.ro;
         bflow_vec[i] = dsoil.bflow;
         pet_vec[i] = dvap.pet;
@@ -1258,13 +1228,13 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     }
  
     dsoil.sm = wn_vec[(n-1)];
-    dsoil.tdr = tdrain_vec[(n-1)];
-    dsoil.sqout = sqout_vec[(n-1)];
-    dsoil.swe = snow_vec[(n-1)];
+    dsoil.tdr = td_vec[(n-1)];
+    dsoil.sqout = qin_vec[(n-1)];
+    dsoil.swe = snow[(n-1)]; 
     
 return List::create(Named("wn") = wn_vec, Named("ro") = ro_vec, Named("pet") = pet_vec, Named("aet") = aet_vec, 
-                    Named("snow") = snow_vec, Named("cond") = cond_vec, Named("bflow") = bflow_vec,Named("netr") = netr_vec,
-                    Named("qin_prev") = sqout_vec, Named("tdrain") = tdrain_vec);
+                    Named("snow") = snow, Named("cond") = cond_vec, Named("bflow") = bflow_vec,Named("netr") = netr_vec,
+                    Named("qin_prev") = qin_vec, Named("tdrain") = td_vec);
 }
 
 
