@@ -45,9 +45,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###########################################################################
 		
 	setwd(tmpdir)
-	# get resolution in m2
-	resolution<-sqrt(cellStats(area(elev), stat='mean', na.rm=TRUE))*1000
-
+		
 	#### function to get the latitudes from big rasters i.e 1km res global extent
 	getlatitude <- function(x, filename, ...) {
 		##create array for the results
@@ -75,26 +73,45 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		close(pb)
 		return(out)
 	}
-	# 1.1 calculate upslope area in m2, *all the raster will be saved to the disk by default and latitude
-	if (ncell(elev)>1e7|resolution>=10000){
+	# 1.1 calculate upslope area in m2, *all the rasters will be saved to the disk by default
+	if (ncell(elev)>1e7|res(elev)[1]>0.1){
+		cat("computing contributing areas and terrain features, it might take a while...","\n")
+		start.time<-Sys.time()
 		Au<-upslope_areav2(elev, type,tmpdir)
 		# 1.2.2 get latitude from the high res dem
 		lat<-getlatitude(elev, filename='lat.grd')
+		system("gdaldem slope -s 111120 -co BIGTIFF=YES rawdem.tif slope_deg.tif")
+		system("gdaldem aspect -zero_for_flat -co BIGTIFF=YES rawdem.tif aspect_deg.tif")
+		terraines<-raster::stack(list(slope='slope_deg.tif',aspect='aspect_deg.tif'))
+		# get resolution in m2
+		resolution<-area(elev,filename='area.grd',overwrite=T)
+		resolution<-calc(resolution,function(x){sqrt(x)*1000})
 		gc()
+		cat("... it took","\n")
+		end.time<-Sys.time()
+		end.time-start.time
+		cat("...","\n")
+		
 	}else{
-		Au<-upslope_area(elev)
+		# get resolution in m2
+		cat("computing contributing areas and terrain features","\n")
+		resolution<-sqrt(area(elev))*1000
+		Au<-upslope_area(elev,resolution)
 		# 1.2 get latitudes
 		lat<-elev*0
 		lat.data<-rasterToPoints(elev)
 		lat[!is.na(lat)]<-lat.data[,2]
 		rm(lat.data)
+		terraines<-terrain(elev, opt=c('slope', 'aspect'), unit='degrees')
+		cat("done!","\n")
+		gc()
 	}
 		
 	
 	#lat<-writeRaster(lat,filename="lat.grd", overwrite=TRUE)
 	
 	# 1.3  calculate slope and aspect
-	terraines<-terrain(elev, opt=c('slope', 'aspect'), unit='degrees')
+	
 	
 	###########################################################################
 	# 02. Get time info from data
@@ -474,8 +491,9 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		asprow<-getValues(terraines[[2]],bs$row[i], bs$nrows[i])
 		soilrow<-split(getValues(soil,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
 		Aurow<-split(getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		resrow<-getValues(resolution,bs$row[i], bs$nrows[i])
 		# do calculations
-		wneqmat<-mapply(rspin_up,latrow,elevrow,swrow,tcrow,pnrow,sloprow,asprow,y,soilrow,Aurow,resolution)
+		wneqmat<-mapply(rspin_up,latrow,elevrow,swrow,tcrow,pnrow,sloprow,asprow,y,soilrow,Aurow,resrow)
 		return(wneqmat)
 	}
 	###############################################################################################
@@ -631,8 +649,9 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		Aurow<-split(getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
 		qinrow<-split(getValues(bf_in,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
 		tdrow<-split(getValues(tdin,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		resrow<-getValues(resolution,bs$row[i], bs$nrows[i])
 		# do calculations
-		yearlist<-mapply(run_one_year,latrow,elevrow,sloprow,asprow,swrow,tcrow,pnrow,wnrow,y,snowrow,soilrow,Aurow,resolution,qinrow,tdrow)
+		yearlist<-mapply(run_one_year,latrow,elevrow,sloprow,asprow,swrow,tcrow,pnrow,wnrow,y,snowrow,soilrow,Aurow,resrow,qinrow,tdrow)
 				
 		return(yearlist)
 	}

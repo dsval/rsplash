@@ -619,7 +619,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
     //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max((q_in_o + q_in_f), 0.0);
+    qin_nday = max({q_in_o,q_in_f, 0.0});
     
     dsm.sm = sm;
     dsm.ro = ro;
@@ -1002,7 +1002,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
     //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max((q_in_o + q_in_f), 0.0);
+    qin_nday =   max({q_in_o,q_in_f, 0.0});
             
 
     dsoil.sm = sm;
