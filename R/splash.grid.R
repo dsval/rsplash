@@ -6,7 +6,7 @@
 #' @param   tc Air temperature (°C), same dimensions as sw_in
 #' @param   pn Precipitation (mm), same dimensions as sw_in
 #' @param   elev Elevation (m.a.s.l)
-#' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3)
+#' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3) and depth(m)
 #' @param   outdir (optional) directory path where the results will be saved, working directory by default
 #' @param   tmpdir (optional) directory path where the temporary files will be saved, default temporary directory by default
 #' @param   sim.control (optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.
@@ -285,9 +285,11 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 			
 			gc()
 			nm <-length(ind.months)
-			# actual soil moisture
-			out<-brick(nrows=nrow(x), ncols=ncol(x), crs=crs(x), nl=nm)
-			extent(out)<-extent(x)
+			# save the empty array
+			
+			out<-brick(x[[1]], values=FALSE, nl=nm, filename=paste0(outdir,"/",y[1],"_",y[length(y)],".",varnam,".","nc"),format="CDF",overwrite=TRUE,
+				varnam= varnam, xname="lon", yname="lat", zname="time")
+				
 			out<-setZ(out,ind.months)
 			indmonth<-format(getZ(x),'%Y-%m')
 			setwd(outdir)
@@ -343,8 +345,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 				longname='days to drain'
 			}
 			if(!inmem){
-				out<-writeStart(out,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".",varnam,".","nc"),format="CDF",overwrite=TRUE,varname=varnam, varunit="mm",
-					longname=longname, xname="lon", yname="lat", zname="time", zunit=paste("months","since",paste0(y[1]-1,"-",12)))
+				out<-writeStart(out,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".",varnam,".","nc"),format="CDF",overwrite=TRUE,varname=varnam, varunit="mm",	longname=longname, xname="lon", yname="lat", zname="time")
 				
 				
 			}else {
@@ -443,21 +444,28 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	# 00. create array for equilibrium soil moisture wneq and snow
 	###############################################################################################
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
-	wneq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(wneq)<-extent(elev)
-	snoweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(snoweq)<-extent(elev)
-	bfloweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(bfloweq)<-extent(elev)
-	tdraineq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(tdraineq)<-extent(elev)
-	# runoff
-	ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(ro)<-extent(elev)
-		
-				
 	setwd(outdir)
-	if(inmem){
+	if(!inmem){
+		# actual soil moisture
+		wneq<-brick(elev, values=FALSE, nl=ny,filename="wneq.grd",overwrite=TRUE,overwrite=TRUE) 
+		snoweq<-brick(elev, values=FALSE, nl=ny,filename="snoweq.grd",overwrite=TRUE,overwrite=TRUE) 
+		bfloweq<-brick(elev, values=FALSE, nl=ny,filename="bfloweq.grd",overwrite=TRUE,overwrite=TRUE) 
+		tdraineq<-brick(elev, values=FALSE, nl=ny,filename="tdraineq.grd",overwrite=TRUE,overwrite=TRUE) 
+		ro<-brick(elev, values=FALSE, nl=ny,filename="roeq.grd",overwrite=TRUE,overwrite=TRUE) 
+	}else{
+		
+		wneq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(wneq)<-extent(elev)
+		snoweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(snoweq)<-extent(elev)
+		bfloweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(bfloweq)<-extent(elev)
+		tdraineq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(tdraineq)<-extent(elev)
+		# runoff
+		ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(ro)<-extent(elev)
+		#send the inputs to the RAM
 		sw_in<-readAll(sw_in)
 		tc<-readAll(tc)
 		pn<-readAll(pn)
@@ -465,7 +473,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		lat<-readAll(lat)
 		terraines<-readAll(terraines)
 		soil<-readAll(soil)
-		Au<-readAll(Au)
+		Au<-readAll(Au)	
 	}
 	###############################################################################################
 	# 01. set the clusters for parallel computing
@@ -578,37 +586,56 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 
 run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, resolution,  Au,bf_in, tdin,inmem=FALSE,outdir=getwd()){
 	###############################################################################################
-	# 00. create array for results, fluxes: mm/day, storages (wn, snow): mm
+	# 00. create array for results, fluxes: mm/day, storages (wn, snow): mm 
+	# *make bricks, raster stacks are not working, result should stacks, otherwise merging everything wont work
 	###############################################################################################
-	
-	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
-	# actual soil moisture
-	sm<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(sm)<-extent(elev)
-	# runoff
-	ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(ro)<-extent(elev)
-	# Potential evapotranspiration
-	pet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(pet)<-extent(elev)
-	# Actual evapotranspiration
-	aet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(aet)<-extent(elev)
-	# Snow water equivalent
-	swe<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(swe)<-extent(elev)
-	# Condensation
-	# cond<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	# extent(cond)<-extent(elev)
-	# baseflow
-	bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-	extent(bflow)<-extent(elev)
-	tdrain<-bflow
-	q_in<-bflow
-	# make bricks, raster stacks are not working, result should be as stack, otherwise merging everything wont work
-	gc()
 	setwd(outdir)
-	if(inmem){
+	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
+	if(!inmem){
+		# actual soil moisture
+		sm<-brick(elev, values=FALSE, nl=ny,filename=paste0("sm","_",y,".grd"),overwrite=TRUE) 
+		# runoff
+		ro<-brick(elev, values=FALSE, nl=ny,filename=paste0("ro","_",y,".grd"),overwrite=TRUE) 
+		# Potential evapotranspiration
+		pet<-brick(elev, values=FALSE, nl=ny,filename=paste0("pet","_",y,".grd"),overwrite=TRUE) 
+		# Actual evapotranspiration
+		aet<-brick(elev, values=FALSE, nl=ny,filename=paste0("aet","_",y,".grd"),overwrite=TRUE) 
+		# Snow water equivalent
+		swe<-brick(elev, values=FALSE, nl=ny,filename=paste0("swe","_",y,".grd"),overwrite=TRUE) 
+		# Condensation
+		# cond<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		# extent(cond)<-extent(elev)
+		# baseflow
+		bflow<-brick(elev, values=FALSE, nl=ny,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
+		# tdrain
+		tdrain<-brick(elev, values=FALSE, nl=ny,filename=paste0("tdrain","_",y,".grd"),overwrite=TRUE)
+		# q_in
+		q_in<-brick(elev, values=FALSE, nl=ny,filename=paste0("q_in","_",y,".grd"),overwrite=TRUE)
+	}else{
+		# actual soil moisture
+		sm<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(sm)<-extent(elev)
+		# runoff
+		ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(ro)<-extent(elev)
+		# Potential evapotranspiration
+		pet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(pet)<-extent(elev)
+		# Actual evapotranspiration
+		aet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(aet)<-extent(elev)
+		# Snow water equivalent
+		swe<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(swe)<-extent(elev)
+		# Condensation
+		# cond<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		# extent(cond)<-extent(elev)
+		# baseflow
+		bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		extent(bflow)<-extent(elev)
+		tdrain<-bflow
+		q_in<-bflow
+		#move inputs to the memory
 		sw_in<-readAll(sw_in)
 		tc<-readAll(tc)
 		pn<-readAll(pn)
@@ -621,7 +648,9 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		Au<-readAll(Au)
 		bf_in<-readAll(bf_in)
 		tdin<-readAll(tdin)
+	
 	}
+			
 	###############################################################################################
 	# 01. set the clusters for parallel computing
 	###############################################################################################	
