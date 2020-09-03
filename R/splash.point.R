@@ -11,7 +11,7 @@
 #' @param   soil_data Soil data organized as a vector in the way: c(sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3))
 #' @return a time series matrix including:
 #' \itemize{
-#'         \item \eqn{W_n}: Soil water content within the first 2m of depth (mm).
+#'         \item \eqn{wn}: Soil water content within the first 2m of depth (mm).
 #'         \item \eqn{ro}: Runoff (mm d-1).
 #'         \item \eqn{pet}: Potential evapotranspiration (mm d-1).
 #'         \item \eqn{aet}: Actual evapotranspiration (mm d-1).

@@ -181,7 +181,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = soil_info[1];
+    double RES = 0.0;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -209,7 +209,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     if (theta_i>=theta_s){
         theta_i = theta_s - 0.001;
     } else if (theta_i<=theta_r){
-        theta_i = theta_wp + 0.001;
+        theta_i = theta_r + 0.001;
     }
     // coefficient Maatselar
     double alph = 4.0 + 2.0*lambda;
@@ -257,12 +257,12 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double sw = 0.0;
     // when the soil depth exeeds 2m:
      if (depth>2.0){
-        double RES_z = theta_r * z_uns;
+        double RES_z = theta_wp * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
         Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
-        sw = Global::Cw*((wn-RES)/(Wmax-RES));
+        sw = Global::Cw*((wn-WP)/(Wmax-WP));
     }
        
     if (sw < 0.0 || isnan(sw)==1) {
@@ -406,7 +406,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
 	double int_perm = Ksat/Global::fluidity;
 	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
-    double inflow = pn + 0.1*dn.cond + snowmelt;
+    double inflow = pn + 0.01*dn.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
@@ -597,7 +597,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
         // calc theoretical time to drain out the area upslope at the current transmittance
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         // using the usual decaying drainage eqn Q_t=Q_o Kb^t, how muchs is the initial input?
-        q_in_f = Qt/(Ai*pow(Kb,t_drain));
+        //q_in_f = Qt/(Ai*pow(Kb,t_drain));
+        q_in_f = (Qt-Au*R*log(Kb))/Ai;
        
     }    
     
@@ -619,7 +620,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
     //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday = max({q_in_o,q_in_f, 0.0});
+    qin_nday = max(max(q_in_o,q_in_f), 0.0);
     
     dsm.sm = sm;
     dsm.ro = ro;
@@ -669,7 +670,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = soil_info[1];
+    double RES = 0;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -697,7 +698,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     if (theta_i>=theta_s){
         theta_i = theta_s - 0.001;
     } else if (theta_i<=theta_r){
-        theta_i = theta_wp + 0.001;
+        theta_i = theta_r + 0.001;
     }
     // coefficient Maatselar
     double alph = 4.0 + 2.0*lambda;
@@ -745,12 +746,12 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double sw = 0.0;
     // when the soil depth exeeds 2m:
      if (depth>2.0){
-        double RES_z = theta_r * z_uns;
+        double RES_z = theta_wp * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
         Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
-        sw = Global::Cw*((wn-RES)/(Wmax-RES));
+        sw = Global::Cw*((wn-WP)/(Wmax-WP));
     }
        
     if (sw < 0.0 || isnan(sw)==1) {
@@ -790,7 +791,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
 	double int_perm = Ksat/Global::fluidity;
 	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
-    double inflow = pn + 0.1*dvap.cond + snowmelt;
+    double inflow = pn + 0.01*dvap.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
@@ -981,7 +982,8 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         // calc theoretical time to drain out the area upslope at the current transmittance
         t_drain = -1.0*log(1.0-(log(Kb)*(Au*R/Q)))/log(Kb);
         // using the usual decaying drainage eqn Q_t=Q_o Kb^t, how muchs is the initial input?
-        q_in_f = Qt/(Ai*pow(Kb,t_drain));
+       //q_in_f = Qt/(Ai*pow(Kb,t_drain));
+        q_in_f = (Qt-Au*R*log(Kb))/Ai;
        
     }    
     tdrain_out = max((td+t_drain)/2, 0.0);
@@ -1002,7 +1004,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
     //how much will get in the next day
     double qin_nday = 0.0;
-    qin_nday =   max({q_in_o,q_in_f, 0.0});
+    qin_nday =  max(max(q_in_o,q_in_f), 0.0);
             
 
     dsoil.sm = sm;

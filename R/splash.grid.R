@@ -7,12 +7,12 @@
 #' @param   pn Precipitation (mm), same dimensions as sw_in
 #' @param   elev Elevation (m.a.s.l)
 #' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3) and depth(m)
-#' @param   outdir (optional) directory path where the results will be saved, working directory by default
-#' @param   tmpdir (optional) directory path where the temporary files will be saved, default temporary directory by default
+#' @param   outdir (optional) directory path where the results will be saved, the working directory by default
+#' @param   tmpdir (optional) directory path where the temporary files will be saved
 #' @param   sim.control (optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.
 #' @return a list of rasterBricks objects with z time dimension, all of them saved to outdir as netcdf files:
 #' \itemize{
-#'         \item \eqn{W_n}: Soil water content (mm) within the first 2 m of depth.
+#'         \item \eqn{wn}: Soil water content (mm) within the first 2 m of depth.
 #'         \item \eqn{ro}: Runoff (mm d-1).
 #'         \item \eqn{pet}: Potential evapotranspiration (mm d-1).
 #'         \item \eqn{aet}: Actual evapotranspiration (mm d-1).
@@ -411,9 +411,10 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		# result.all[[6]]<-aggregate_par(result.all[[6]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='cond',outdir=outdir)
 		result.all$bflow<-aggregate_par(result.all$bflow,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='bflow',outdir=outdir)
 		# result.all[[8]]<-aggregate_par(result.all[[8]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='tdrain',outdir=outdir)
+		
 		endCluster()
 		
-	}else{
+	}else if(sim.control$output.mode!="monthly" & sim.control$inmem!=TRUE){
 		endCluster()
 		gc()
 		cat("writing to disk")
@@ -432,7 +433,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		# 	varunit="day", longname="days to drain", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
 		
 	}
-	
+	result.all$q_in<-NULL
 	gc()	
 	
 	return(result.all)
