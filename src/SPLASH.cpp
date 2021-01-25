@@ -170,7 +170,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //saturation (water  content mm at 0 KPa)
     double SAT = soil_info[0];
     //wilting point (water content mm at 1500 KPa)
-    double WP = soil_info[1];
+    double WP = 0.0;
+    //double WP = soil_info[1];
     //field capacity (water content mm at 33KPa)
     double FC = soil_info[2];
     //saturated hydraulic conductivity(mm/hr)
@@ -181,7 +182,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = 0.0;
+    double RES = WP;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -191,7 +192,13 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double cellin = soil_info[10];
     double cellout = soil_info[11];
      // define hydraulic gradient 
-    double hyd_grad = (dtan(slop));
+    double hyd_grad = 0.0;
+    if (depth>=2.0){
+        hyd_grad =  sqrt(pow(dsin(slop),2)+pow(dtan(slop),2));
+    } else {
+        hyd_grad = dtan(slop);
+    }
+   
     //if(isnan(soil_info[12])==1 ){
     //    hyd_grad = (dtan(slop));
     //} else{
@@ -659,7 +666,8 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //saturation (water  content mm at 0 KPa)
     double SAT = soil_info[0];
     //wilting point (water content mm at 1500 KPa)
-    double WP = soil_info[1];
+    //double WP = soil_info[1];
+    double WP = 0.0;
     //field capacity (water content mm at 33KPa)
     double FC = soil_info[2];
     //saturated hydraulic conductivity(mm/hr)
@@ -670,7 +678,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = 0;
+    double RES = WP;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -679,8 +687,14 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
-     // define hydraulic gradient 
-    double hyd_grad = (dtan(slop));
+      // define hydraulic gradient 
+    double hyd_grad = 0.0;
+    
+    if (depth>=2.0){
+        hyd_grad =  sqrt(pow(dsin(slop),2)+pow(dtan(slop),2));
+    } else {
+        hyd_grad = dtan(slop);
+    }
     //if(isnan(soil_info[12])==1 ){
     //    hyd_grad = (dtan(slop));
     //} else{
@@ -1042,14 +1056,15 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     //saturation (water  content mm at 0 KPa)
     double SAT = soil_info[0];
     //wilting point (water content mm at 1500 KPa)
-    double WP = soil_info[1];
+    //double WP = soil_info[1];
+    double WP = 0.0;
     //slope of the log-log curve soil moisture-matric potetial from brooks and Corey (1964)
     double lambda = soil_info[4];
     double depth = soil_info[5];
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = soil_info[1];
+    double RES = WP;
     //double RES = soil_info[7];
 
     double theta_s = SAT/(depth *1000.0);

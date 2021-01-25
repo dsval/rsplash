@@ -111,6 +111,7 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     pw = density_h2o(tw, patm);
     g = psychro(tc, patm);
     econ = s/(lv*pw*(s + g));
+    //econ = s/(lv*pw*(s + 0.24*g));
     visc = calc_viscosity_h2o(tw,patm);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 3. Calculate daily condensation (wc), mm
@@ -126,11 +127,12 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // 5. Estimate daily potential evapotranspiration (pet_d), mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     pet_d = (1.0 + Global::w)*eet_d;
-
+    //pet_d = eet_d;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 6. Calculate variable substitute (rx), (mm/hr)/(W/m^2)
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     rx = (3.6e6)*(1.0 + Global::w)*econ;
+    //rx = (3.6e6)*econ;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Estimate daily water supply, mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

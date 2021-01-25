@@ -185,15 +185,27 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 10. Estimate net longwave radiation (rnl), W/m^2
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //rnl = (Global::b + (1.0 - Global::b)*tau)*(Global::A - 0.3*tc);
-    double sf =(tau-Global::c)/Global::d;
-    rnl = (Global::b + (1.0 - Global::b)*sf)*(Global::A - 0.3*tc);
-
+    //double sf =(tau-Global::c)/Global::d;
+    //rnl = (Global::b + (1.0 - Global::b)*sf)*(Global::A - 0.3*tc);
+    //general global AP radiation model Suehrcke, et al., 2013 
+	//tau_o=0.7249
+	//beta=0.1898
+	//gamma=0.7410
+    double sf = 0.0;
+	sf = pow(((tau-tau_o*0.1898)/(tau_o*(1-0.1898))),(1/0.7410));
+    if(isnan(sf)==1){
+        sf = 0.0;
+    }else if(sf>1.0){
+        sf = 1.0;
+    }
+    rnl = (Global::b + (1.0 - Global::b)*sf)*(Global::A + 1.069921*tc);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 11. Calculate variable substitute (rw), W/m^2
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // snow fraction cover, Romanov, 2003
-	double sfc = min(1.0,snow/1500.0);
+	//double sfc = min(1.0,snow/1500.0);
+    // lm with modis  and snotel data, max snow albedo as 0.78
+    double sfc = 0.5935119/(1.0 + exp((-243.1452366 - snow)/173.6612577));
     //albedo, assuming max snow albedo as 0.85
     
 	double alb = Global::alb_sw *(1.0-sfc)+sfc*0.85;
