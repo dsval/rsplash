@@ -80,11 +80,11 @@ EVAP::EVAP(double a, double b){
 }
 
 void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
-                                  double tc, double slop, double asp, double snow){
+                                  double tc, double slop, double asp, double snow, double nd){
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 1. Calculate radiation values
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    solar.calculate_daily_fluxes(n, y, sw_in, tc, slop, asp,snow);
+    solar.calculate_daily_fluxes(n, y, sw_in, tc, slop, asp,snow, nd);
     d_sr = solar.get_vals();
     ru = d_sr.ru;
     rv = d_sr.rv;
@@ -132,6 +132,10 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // 6. Calculate variable substitute (rx), (mm/hr)/(W/m^2)
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     rx = (3.6e6)*(1.0 + Global::w)*econ;
+    // maximum instatntaneous demand (pet_max), mm/hr
+    double pet_max = rx*((rw*(ru+rv))- rnl) ;
+    //assume cw = pet_max
+    //sw *= pet_max;
     //rx = (3.6e6)*econ;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Estimate daily water supply, mm
@@ -479,6 +483,7 @@ etr EVAP::get_vals(){
     d_etr.pw = pw;
     d_etr.rn_d = rn_d;
     d_etr.visc = visc;
+    
     return d_etr;
 }
 

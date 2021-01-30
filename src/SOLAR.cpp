@@ -74,7 +74,7 @@ SOLAR::SOLAR(double a, double b)
 Class Function Definitions
 /////////////////////////////////////////////////////////////////////
 */
-void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double slop, double asp,double snow){
+void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double slop, double asp,double snow, double nd){
     /* ***********************************************************************
     Name:     SOLAR.calculate_daily_fluxes
     Input:    - int, day of year (n)
@@ -198,17 +198,20 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     }else if(sf>1.0){
         sf = 1.0;
     }
-    rnl = (Global::b + (1.0 - Global::b)*sf)*(Global::A + 1.069921*tc);
+    rnl = (0.0883289 + (1.0 - Global::b)*sf)*(Global::A + 1.95974*tc);
+    //rnl = (Global::b + (1.0 - Global::b)*sf)*(Global::A - 0.3*tc);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 11. Calculate variable substitute (rw), W/m^2
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    double max_alb_snw = (1.0-0.443700)+ (0.443700 *exp(-0.895189 * nd));
     // snow fraction cover, Romanov, 2003
 	//double sfc = min(1.0,snow/1500.0);
     // lm with modis  and snotel data, max snow albedo as 0.78
-    double sfc = 0.5935119/(1.0 + exp((-243.1452366 - snow)/173.6612577));
+    //double sfc = 0.5935119/(1.0 + exp((-243.1452366 - snow)/173.6612577));
+    double sfc =snow/(140.0+snow);
     //albedo, assuming max snow albedo as 0.85
     
-	double alb = Global::alb_sw *(1.0-sfc)+sfc*0.85;
+	double alb = Global::alb_sw *(1.0-sfc)+sfc*max_alb_snw;
     if ((sw_in == 0.0) || (hs == 0.0)){
 		rw = (1.0 - alb)*tau*dr*Global::Gsc;
 	} else {

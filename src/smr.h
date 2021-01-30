@@ -55,5 +55,6 @@ struct smr {
     double bflow;   // baseflow, mm
     double sqout;   // drainge from the previous day
     double tdr;     // day left to drain totally water from upslope
+    double nd;     // snow age (days)
 };
 #endif

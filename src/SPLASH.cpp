@@ -149,7 +149,7 @@ double SPLASH::dtan(double x){
 
 void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
                        double pn, smr &dsm, double slop, double asp, double snow, double snowfall, vector <double> &soil_info,
-                       double qin, double td) {
+                       double qin, double td, double nd) {
     /* ***********************************************************************
     Name:     SPLASH.quick_run
     Input:    - int, day of year (n)
@@ -159,6 +159,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
               - double, daily air temperature, deg C (tc)
               - double, daily precipitation, mm (pn)
               - smr, daily soil moisture & runoff
+              - double, nd snow age (days)
     Output:   None.
     Features: Calculates daily soil moisture and runoff based on STASH
               methods.
@@ -170,8 +171,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //saturation (water  content mm at 0 KPa)
     double SAT = soil_info[0];
     //wilting point (water content mm at 1500 KPa)
-    double WP = 0.0;
-    //double WP = soil_info[1];
+    //double WP = 0.0;
+    double WP = soil_info[1];
     //field capacity (water content mm at 33KPa)
     double FC = soil_info[2];
     //saturated hydraulic conductivity(mm/hr)
@@ -182,7 +183,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = WP;
+    double RES = WP/2;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -198,7 +199,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     } else {
         hyd_grad = dtan(slop);
     }
-   
+    // assuming gravity and water density constants, define coefficient to calc graviational potential
+    double KG_o=1000.0/(997*Global::G);
     //if(isnan(soil_info[12])==1 ){
     //    hyd_grad = (dtan(slop));
     //} else{
@@ -218,8 +220,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     } else if (theta_i<=theta_r){
         theta_i = theta_r + 0.001;
     }
-    // coefficient Maatselar
-    double alph = 4.0 + 2.0*lambda;
+    
     // assuming octogonal cells, ncells draining will have n octagon sides of length[m]:
     double sid_oct = sqrt(Ai/(2.0*(1+sqrt(2.0))));
 
@@ -256,20 +257,22 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 02. Calculate maximum water retention in the column when the soil depth exeeds 2m
     // ####################################################################################################################
     double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
-    double Wmax = pow((coeff_A/(z_uns)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
-
+    double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
+    
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
+    
     double sw = 0.0;
     // when the soil depth exeeds 2m:
-     if (depth>2.0){
-        double RES_z = theta_wp * z_uns;
+     if (depth>=2.0){
+        double RES_z = theta_r * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
-        Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
-        sw = Global::Cw*((wn-WP)/(Wmax-WP));
+        Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+        
+        sw = Global::Cw*((wn-RES)/(Wmax-RES));
     }
        
     if (sw < 0.0 || isnan(sw)==1) {
@@ -277,6 +280,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
+    
     // ####################################################################################################################
     // experimental - other soil moisture limiting functions
     // ####################################################################################################################
@@ -337,14 +341,21 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //double sw = Global::Cw*((theta_aet-theta_r)/theta_fc);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //Maatselar approach
-    // double theta_l = (theta_wp) + 0.9*(theta_s-theta_wp);
-    // double TH_l = (theta_l-theta_r)/(theta_s-theta_wp);
-    // double TH_w = (theta_wp-theta_r)/(theta_s-theta_wp);
-    // double TH = (theta_i-theta_r)/(theta_s-theta_wp);
-    // double f_aet = (pow(TH,alph)-pow(TH_w,alph)) /(pow(TH_l,alph)-pow(TH_w,alph));
-    //double sw = Global::Cw*(f_aet);
-
+    //Metselaar approach
+    /*
+    double alph = 4.0 + 2.0*lambda;
+    double theta_l = (theta_wp) + 0.9*(theta_s-theta_wp);
+    double TH_l = (theta_l-theta_r)/(theta_s-theta_wp);
+    double TH_w = (theta_wp-theta_r)/(theta_s-theta_wp);
+    double TH = (theta_i-theta_r)/(theta_s-theta_wp);
+    double f_aet = (pow(TH,alph)-pow(TH_w,alph)) /(pow(TH_l,alph)-pow(TH_w,alph));
+    double sw = Global::Cw*(f_aet);
+    if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    } else if (sw > Global::Cw){
+          sw = Global::Cw;
+    }
+    */
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Feddes approach
     // double h1 = 100.0;
@@ -381,16 +392,52 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //if (sw < 0.0 || isnan(sw)==1) {
     //    sw = 0.0;
     //}
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Water supply calc as difference of soil and water potentials mm
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /*
+    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow);
+    etr dn_dumm = evap.get_vals();
+    double pet_d = dn_dumm.pet;
+    double pw = dn_dumm.pw;
+        
+    //9.1. Soil matric potential to MPa
+    double psi_m_mpa = psi_m * 0.00000980665;
+    // //9.2. Leaf water potential at critical leaf RWC [MPa]
+    // molar volume litre/mol
+    double v_m = 18/pw;
+    double psi_l_c = ((0.082*(273.15+tc)*log(0.90))/(v_m))*0.101325;
+    // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
+    double Rp = (-0.033-psi_l_c)/pet_d;
+
+    // //9.3. Leaf water potential assuming RWC at 98% [MPa]
+    double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
+        
+    //9.5. water supply mm/day
+    double sw = (psi_m_mpa-psi_l)/Rp;
+    if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    }
+    */
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
     // ####################################################################################################################
     // 04. Snowpack and energy Balances
     // ####################################################################################################################  
     //4.1. Accumulate snow (mm) first so feedback on albedo happens
+    // calc snow age (days)
+    if (snowfall > 0.0){
+        nd = 0.0;
+    }else{
+        nd += 1.0;
+    }
     snow += snowfall;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 4.2. Calculate radiation and evaporation quantities
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    evap.calculate_daily_fluxes(sw, n, y, sw_in, tc, slop, asp,snow);
+    evap.calculate_daily_fluxes(sw, n, y, sw_in, tc, slop, asp,snow, nd);
     etr dn = evap.get_vals();
     econ = dn.econ;
     pw = dn.pw;
@@ -634,13 +681,13 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     dsm.swe = snow;
     dsm.sqout = qin_nday;
     dsm.tdr = tdrain_out;
-    
+    dsm.nd = nd;
    
 }
 
 void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
                          double pn,smr &dsoil, double slop, double asp,double snow, double snowfall, vector <double> &soil_info,
-                         double qin, double td) {
+                         double qin, double td, double nd) {
     /* ***********************************************************************
     Name:     SPLASH.run_one_day
     Input:    - int, day of year (n)
@@ -666,8 +713,8 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //saturation (water  content mm at 0 KPa)
     double SAT = soil_info[0];
     //wilting point (water content mm at 1500 KPa)
-    //double WP = soil_info[1];
-    double WP = 0.0;
+    double WP = soil_info[1];
+    //double WP = 0.0;
     //field capacity (water content mm at 33KPa)
     double FC = soil_info[2];
     //saturated hydraulic conductivity(mm/hr)
@@ -678,7 +725,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = WP;
+    double RES = WP/2;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -695,6 +742,8 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     } else {
         hyd_grad = dtan(slop);
     }
+    // assuming gravity and water density constants, define coefficient to calc gravitional potential
+    double KG_o=1000.0/(997*Global::G);
     //if(isnan(soil_info[12])==1 ){
     //    hyd_grad = (dtan(slop));
     //} else{
@@ -714,8 +763,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     } else if (theta_i<=theta_r){
         theta_i = theta_r + 0.001;
     }
-    // coefficient Maatselar
-    double alph = 4.0 + 2.0*lambda;
+    
     // assuming octogonal cells, ncells draining will have n octagon sides of length[m]:
     double sid_oct = sqrt(Ai/(2.0*(1+sqrt(2.0))));
 
@@ -752,20 +800,21 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 02. Calculate maximum water retention in the column when the soil depth exeeds 2m
     // ####################################################################################################################
     double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
-    double Wmax = pow((coeff_A/(z_uns)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
-
+    double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
+    
     double sw = 0.0;
     // when the soil depth exeeds 2m:
-     if (depth>2.0){
-        double RES_z = theta_wp * z_uns;
+     if (depth>=2.0){
+        double RES_z = theta_r * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
-        Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
-        sw = Global::Cw*((wn-WP)/(Wmax-WP));
+        Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    
+        sw = Global::Cw*((wn-RES)/(Wmax-RES));
     }
        
     if (sw < 0.0 || isnan(sw)==1) {
@@ -773,16 +822,66 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //Metselaar approach
+    /*
+    double alph = 4.0 + 2.0*lambda;
+    double theta_l = (theta_wp) + 0.9*(theta_s-theta_wp);
+    double TH_l = (theta_l-theta_r)/(theta_s-theta_wp);
+    double TH_w = (theta_wp-theta_r)/(theta_s-theta_wp);
+    double TH = (theta_i-theta_r)/(theta_s-theta_wp);
+    double f_aet = (pow(TH,alph)-pow(TH_w,alph)) /(pow(TH_l,alph)-pow(TH_w,alph));
+    double sw = Global::Cw*(f_aet);
+    if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    } else if (sw > Global::Cw){
+          sw = Global::Cw;
+    }
+    */
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Water supply calc as difference of soil and water potentials mm
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /*
+    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow);
+    etr dn_dumm = evap.get_vals();
+    double pet_d = dn_dumm.pet;
+    double pw = dn_dumm.pw/1000.0;
+        
+    //9.1. Soil matric potential to MPa
+    double psi_m_mpa = psi_m * 0.00000980665;
+    // //9.2. Leaf water potential at critical leaf RWC [MPa]
+    // molar volume
+    double v_m = 18/pw;
+    double psi_l_c = ((0.082*(273.15+tc)*log(0.90))/(v_m))*0.101325;
+    // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
+    double Rp = (-0.033-psi_l_c)/pet_d;
 
+    // //9.3. Leaf water potential assuming RWC at 98% [MPa]
+    double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
+        
+    //9.5. water supply mm/day
+    double sw = (psi_m_mpa-psi_l)/Rp;
+    if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    }
+    */
     // ####################################################################################################################
     // 04. Snowpack and energy Balances
     // ####################################################################################################################  
     //4.1. Accumulate snow (mm) first so feedback on albedo happens
+    // calc snow age (days)
+    if (snowfall > 0.0){
+        nd = 0.0;
+    }else{
+        nd += 1.0;
+    }
+    
     snow += snowfall;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 4.2. Calculate radiation and evaporation quantities
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    evap.calculate_daily_fluxes(sw, n, y, sw_in, tc, slop, asp, snow);
+    evap.calculate_daily_fluxes(sw, n, y, sw_in, tc, slop, asp, snow, nd);
     dvap = evap.get_vals();
     econ = dvap.econ;
     pw = dvap.pw;
@@ -1027,6 +1126,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     dsoil.tdr = tdrain_out;
     dsoil.sqout = qin_nday; 
     dsoil.bflow = T;
+    dsoil.nd = nd;
     
    
 
@@ -1050,21 +1150,22 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     double snow;  // previous day's swe, mm
     double qin;  // previous day's drainage
     double td;  // days left to drain the area upslope
+    double nd;  // snow age (days)
     smr dsm;    // daily soil moisture, swe and runoff
     //residual water content
     //read soil hydro points in mm
     //saturation (water  content mm at 0 KPa)
     double SAT = soil_info[0];
     //wilting point (water content mm at 1500 KPa)
-    //double WP = soil_info[1];
-    double WP = 0.0;
+    double WP = soil_info[1];
+    //double WP = 0.0;
     //slope of the log-log curve soil moisture-matric potetial from brooks and Corey (1964)
     double lambda = soil_info[4];
     double depth = soil_info[5];
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = WP;
+    double RES = WP/2;
     //double RES = soil_info[7];
 
     double theta_s = SAT/(depth *1000.0);
@@ -1080,6 +1181,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
 	vector <double> snow_vec(n,0.0);
     vector <double> tdrain_vec(n,0.0);
     vector <double> qin_prev_vec(n,0.0);
+    vector <double> nds_prev_vec(n,0.0);
     // Run one year:
     for (int i=0; i<n; i++){
         // Get preceeding soil moisture status:
@@ -1088,22 +1190,25 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
             snow = snow_vec[n-1];
             qin = qin_prev_vec[n-1];
             td = tdrain_vec[n-1];
+            nd = nds_prev_vec[n-1];
         } else {
             wn = wn_vec[(i-1)];
             snow = snow_vec[(i-1)];
             qin = qin_prev_vec[(i-1)];
             td = tdrain_vec[(i-1)];
+            nd = nds_prev_vec[i-1];
         }
 
         // Calculate soil moisture and runoff
         quick_run((i+1), y, wn, sw_in[i], tair[i],
-                  pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info, qin, td);
+                  pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info, qin, td, nd);
 
         wn_vec[i] = dsm.sm;
         ro_vec[i] = dsm.ro;
         snow_vec[i] = dsm.swe;
         tdrain_vec[i] = dsm.tdr;
         qin_prev_vec[i] = dsm.sqout;
+        nds_prev_vec[i] = dsm.nd;
         
     }
 
@@ -1111,7 +1216,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     double start_sm = wn_vec[0];
     double start_wtd = get_wtd( start_sm,  depth,  bub_press, theta_s, theta_r, lambda);
     quick_run(1, y, wn_vec[n-1], sw_in[0], tair[0],
-              pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1]);
+              pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1],nds_prev_vec[n-1]);
     double end_sm = dsm.sm;
     double end_wtd = get_wtd(end_sm,  depth,  bub_press, theta_s, theta_r, lambda);
     double diff_sm = (end_sm - start_sm);
@@ -1141,29 +1246,32 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
                 snow = snow_vec[n-1];
                 qin = qin_prev_vec[n-1];
                 td = tdrain_vec[n-1];
+                nd = nds_prev_vec[n-1];
             } else {
                 wn = wn_vec[(i-1)];
                 snow = snow_vec[(i-1)];
                 td = tdrain_vec[(i-1)];
                 qin = qin_prev_vec[(i-1)];
+                nd = nds_prev_vec[i-1];
             }
 
             // Calculate soil moisture and runoff
             quick_run((i+1), y, wn, sw_in[i], tair[i],
-                      pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info,qin,td);
+                      pn[i], dsm, slop, asp, snow ,snowfall[i],soil_info,qin,td, nd);
 
             wn_vec[i] = dsm.sm;
             ro_vec[i] = dsm.ro;
             snow_vec[i] = dsm.swe;
             tdrain_vec[i] = dsm.tdr;
             qin_prev_vec[i] = dsm.sqout;
+            nds_prev_vec[i] = dsm.nd;
         }
 
         // Calculate difference
         start_sm = wn_vec[0];
         start_wtd = get_wtd( start_sm,  depth,  bub_press, theta_s, theta_r, lambda);
         quick_run(1, y, wn_vec[n-1], sw_in[0], tair[0],
-                  pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1]);
+                  pn[0], dsm, slop, asp,snow_vec[n-1],snowfall[0],soil_info,qin_prev_vec[n-1],tdrain_vec[n-1],nds_prev_vec[n-1]);
         end_sm = dsm.sm;
         end_wtd = get_wtd(end_sm,  depth,  bub_press, theta_s, theta_r, lambda);
         diff_sm = (end_sm - start_sm);
@@ -1181,12 +1289,12 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     // Save initial soil moisture condition:
     //dsoil.sm = wn_vec[n-1];
     
-    return List::create(Named("sm") = wn_vec, Named("snow") = snow_vec,Named("qin") = qin_prev_vec,Named("tdrain") = tdrain_vec, Named("ro") = ro_vec);
+    return List::create(Named("sm") = wn_vec, Named("snow") = snow_vec,Named("qin") = qin_prev_vec,Named("tdrain") = tdrain_vec, Named("ro") = ro_vec, Named("snwage") = nds_prev_vec);
 }
 
 List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, vector <double> &wn_vec, 
                             double slop, double asp, vector <double> &snow, vector <double> &snowfall, vector <double> &soil_info,
-                            vector <double> &qin_vec,vector <double> &td_vec){
+                            vector <double> &qin_vec,vector <double> &td_vec, vector <double> &nds){
     /* ***********************************************************************
     Name:     SPLASH.run_one_year
     Input:    DATA class (d)
@@ -1202,6 +1310,7 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
     double swe ; // previous day's swe, mm
     double qin;// previous day's drainage
     double td ; // days left to drain the area upslope
+    double nd ; // snow age (dyas)
      
     
    
@@ -1228,15 +1337,17 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
             swe = snow[(n_end-1)];
             qin = qin_vec[(n_end-1)];
             td = td_vec[(n_end-1)];
+            nd = nds[(n_end-1)];
         } else {
             wn = wn_vec[(i-1)];
             swe = snow[(i-1)];
             qin = qin_vec[(i-1)];
             td = td_vec[(i-1)];
+            nd = nds[(i-1)];
         }
 
         // Calculate soil moisture and runoff
-        run_one_day((i+1), y, wn, sw_in[i], tair[i],pn[i], dsoil, slop, asp, swe, snowfall[i], soil_info, qin, td);
+        run_one_day((i+1), y, wn, sw_in[i], tair[i],pn[i], dsoil, slop, asp, swe, snowfall[i], soil_info, qin, td, nd);
         
         qin_vec[i] = dsoil.sqout;
         td_vec[i] = dsoil.tdr;
@@ -1248,17 +1359,18 @@ List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &
         aet_vec[i] = dvap.aet;
         cond_vec[i] = dvap.cond;
         netr_vec[i] = dvap.rn_d/1e6;
-       
+        nds[i] = dsoil.nd;
     }
  
     dsoil.sm = wn_vec[(n-1)];
     dsoil.tdr = td_vec[(n-1)];
     dsoil.sqout = qin_vec[(n-1)];
     dsoil.swe = snow[(n-1)]; 
+    dsoil.nd = nds[(n-1)];
     
 return List::create(Named("wn") = wn_vec, Named("ro") = ro_vec, Named("pet") = pet_vec, Named("aet") = aet_vec, 
                     Named("snow") = snow, Named("cond") = cond_vec, Named("bflow") = bflow_vec,Named("netr") = netr_vec,
-                    Named("qin_prev") = qin_vec, Named("tdrain") = td_vec);
+                    Named("qin_prev") = qin_vec, Named("tdrain") = td_vec, Named("snwage") = nds);
 }
 
 

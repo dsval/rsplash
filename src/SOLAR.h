@@ -88,7 +88,7 @@ class SOLAR {
         SOLAR(double a, double b);
 
         // General purpose functions:
-        void calculate_daily_fluxes(int n, int y, double sw_in, double tc, double slop, double asp, double snow);
+        void calculate_daily_fluxes(int n, int y, double sw_in, double tc, double slop, double asp, double snow, double nd);
         srad get_vals();
         void display();
 };

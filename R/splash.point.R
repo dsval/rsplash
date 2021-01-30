@@ -46,7 +46,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 		
 		if (length(y)==1){
 			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
-			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain)
+			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain, initial$snwage)
 			result<-do.call(cbind,result)
 		}
 		else if(length(y)>1){
@@ -61,14 +61,14 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 			
 			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
 			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:ny[1]], tc[1:ny[1]],  pn[1:ny[1]],initial$sm, y[1], initial$snow,
-				soil_data,Au,resolution,initial$qin,initial$tdrain)
+				soil_data,Au,resolution,initial$qin,initial$tdrain, initial$snwage)
 			
 			for (i in 2:length(y)){
 				
 				stidx<-i-1
 				# correct for leap years inside the c++ code	
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[stidx]:end[i]], tc[start[stidx]:end[i]], pn[start[stidx]:end[i]],
-					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain)
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain,result[[stidx]]$snwage)
 			}
 			result<-lapply(result,FUN=base::as.data.frame)
 			result<-do.call(rbind,result)
@@ -84,7 +84,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 		if (length(y)==1){
 			initial<-rspin_up(lat,elev, sw_in, tc, pn, slop,asp, y[1],soil_data,Au,resolution)
 			
-			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain)
+			result<-run_one_year(lat,elev,slop,asp,sw_in, tc, pn,initial$sm, y[1], initial$snow,soil_data,Au,resolution,initial$qin,initial$tdrain, initial$snwage)
 			
 			result<-do.call(cbind,result)
 		}
@@ -98,14 +98,14 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 			pn_av<-tapply(pn,format(time(sw_in),"%m"),mean, na.rm=TRUE)
 			initial<-rspin_up(lat,elev, sw_av, tc_av, pn_av, slop,asp, y[1],soil_data,Au,resolution)
 			result[[1]]<-run_one_year(lat,elev,slop,asp,sw_in[1:end[1]], tc[1:end[1]],  pn[1:end[1]],initial$sm, y[1], initial$snow,
-				soil_data,Au,resolution,initial$qin,initial$tdrain)
+				soil_data,Au,resolution,initial$qin,initial$tdrain, initial$snwage)
 			
 			for (i in 2:length(y)){
 				
 				stidx<-i-1
 				# correct for leap year sinside the c++ code		
 				result[[i]]<-run_one_year(lat,elev,slop,asp, sw_in[start[i]:end[i]], tc[start[i]:end[i]], pn[start[i]:end[i]],
-					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain)
+					result[[stidx]]$wn,y[i],result[[stidx]]$snow,soil_data,Au,resolution,result[[stidx]]$qin_prev,result[[stidx]]$tdrain,result[[stidx]]$snwage)
 			}
 			result<-lapply(result,FUN=base::as.data.frame)
 			result<-do.call(rbind,result)
@@ -117,9 +117,9 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 	# 4. compute soil moisture limitations
 	####################################################################################################
 	#get the wilting point and bucket size in mm
-	soil_water<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
-	wp<-soil_water$WP*soil_data[6]*1000
-	KWm<-soil_water$AWC*soil_data[6]*1000
+	soil_water<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =0.0 ,bd = soil_data[5])
+	wp<-(soil_water$WP/2)*soil_data[6]*1000
+	KWm<-(soil_water$FC-(soil_water$WP/2))*(soil_data[6]*1000)
 	#get relative soil moisture limitation from 0.0 (at WP) to 1.0 (at FC)
 	soil_lim<-(result$wn-wp)/KWm
 	#adjust the boundaries, wn goes from ~WP to SAT
@@ -436,7 +436,7 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	return(result)
 }
 
-run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,Au,resolution,qin,td) {
+run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,Au,resolution,qin,td, snwage) {
 	# ************************************************************************
 	# Name:     run_one_year
 	# Inputs:   - vectors, forcing data
@@ -453,6 +453,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	#               wn ........................ double, soil water content from the previous year
 	#               qin ....................... double, lateral flow input from upslope (mm/d)
 	#               td ........................ double, time until drainage from upslope ceases (d)
+	#               snwage .................... double, snow age (days)
 	# Returns:  list, daily fluxes and storages for the year y
 	# Features: Wrapper of the c++ function
 	# Depends:  soil_hydro, snowfall_prob, frain_func
@@ -469,11 +470,13 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 		snow<-snow[1:length(pn)]
 		qin<-qin[1:length(pn)]
 		td<-td[1:length(pn)]
+		snwage<-snwage[1:length(pn)]
 	}else if(length(wn)<length(pn)){
 		wn<-c(wn,wn[length(wn)])
 		snow<-c(snow,snow[length(snow)])
 		qin<-c(qin,qin[length(qin)])
 		td<-c(td,td[length(td)])
+		snwage<-c(snwage,snwage[length(snwage)])
 	}
 	
 	# get soil hydrophysical characteristics
@@ -514,7 +517,7 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	my_splash = new(SPLASH, lat, elev)
 	# run splash for one year
 	
-	daily_totals<-my_splash$run_one_year(as.integer(ny), as.integer(y),as.numeric(sw_in),as.numeric(tc),as.numeric(pn),as.numeric(wn),slop,asp,as.numeric(snow),as.numeric(snowfall),soil_info,as.numeric(qin),as.numeric(td))
+	daily_totals<-my_splash$run_one_year(as.integer(ny), as.integer(y),as.numeric(sw_in),as.numeric(tc),as.numeric(pn),as.numeric(wn),slop,asp,as.numeric(snow),as.numeric(snowfall),soil_info,as.numeric(qin),as.numeric(td),as.numeric(snwage))
 	return(daily_totals)
 }
 

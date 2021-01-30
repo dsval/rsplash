@@ -87,12 +87,12 @@ class SPLASH {
         // Functions:
         void quick_run(int n, int y, double wn, double sw_in, double tc,
                        double pn, smr &dsm, double slop, double asp, double snow, double snowfall, vector <double> &soil_info,
-                       double qin, double td);
+                       double qin, double td, double nd);
         void run_one_day(int n, int y, double wn, double sw_in, double tc,
-                         double pn, smr &dsoil, double slop, double asp,double snow, double snowfall, vector <double> &soil_info,double qin, double td);
+                         double pn, smr &dsoil, double slop, double asp,double snow, double snowfall, vector <double> &soil_info,double qin, double td, double nd);
         Rcpp::List spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, double slop, double asp, vector <double> &snowfall, vector <double> &soil_info);        
         Rcpp::List run_one_year(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, vector <double> &wn_vec, double slop, double asp, 
-                                vector <double> &snow, vector <double> &snowfall, vector <double> &soil_info, vector <double> &qin_vec,vector <double> &td_vec);
+                                vector <double> &snow, vector <double> &snowfall, vector <double> &soil_info, vector <double> &qin_vec,vector <double> &td_vec,vector <double> &nds);
         double dcos(double x);
         double dsin(double x);
         double dtan(double x);

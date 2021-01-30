@@ -48,11 +48,11 @@
  * //////////////////////////////////////////////////////////////////////// */
 namespace Global {
     //extern const double A(170);         // (Monteith & Unsworth, 1990)
-    extern const double A(91.41253);         // (Sandoval et al., 2021)
-    extern const double alb_sw(0.15);     // (Federer, 1968)
+    extern const double A(91.86328);         // (Sandoval et al., 2021)
+    extern const double alb_sw(0.17);     // (Federer, 1968)
     extern const double alb_vis(0.03);    // (Sellers, 1985)
     //extern const double b(0.20);          // (Linacre, 1968)
-    extern const double b(0.1032551);          // (Sandoval et al., 2021)
+    extern const double b(0.2012435);          // (Sandoval et al., 2021)
     extern const double c(0.25);          // (Linacre, 1968)
     extern const double d(0.50);          // (Linacre, 1968)
     extern const double fFEC(2.04);       // (Meek et al., 1984)
@@ -66,8 +66,8 @@ namespace Global {
     extern const double R(8.31447);       // (Moldover et al., 1988)
     extern const double To(288.15);       // (Berberan-Santos et al., 1997)
     //extern const double w(0.26);          // (Priestley & Taylor, 1972)
-    extern const double w(-0.2);          // (Priestley & Taylor, 1972)
-    extern const double Cw(1.05);         // (Federer, 1982)
+    extern const double w(-0.3);          // (Priestley & Taylor, 1972)
+    extern const double Cw(0.6);         // (Federer, 1982)
    // extern const double Cw(1.05);         // (Federer, 1982)
     extern const double Wm(180.0);        // (Cramer & Prentice, 1988)
     extern const double PI(3.141592653589793);  // pi

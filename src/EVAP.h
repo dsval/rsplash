@@ -101,7 +101,7 @@ class EVAP {
 
         // General purpose functions:
         void calculate_daily_fluxes(double sw, int n, int y, double sw_in,
-                                    double tc, double slop, double asp,double snow);
+                                    double tc, double slop, double asp,double snow, double nd);
         etr get_vals();
         void display();
 };
