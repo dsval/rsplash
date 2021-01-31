@@ -13,7 +13,7 @@
 
 unSWC<-function(soil_data,uns_depth,wn,units='mm'){
 	# test
-	# soil_data=soil_snow[[1]];uns_depth=depth_sm_snow[[1]];wn=sims$`SNTL:1243`[,1]
+	# soil_data=soil_sm[[1]];uns_depth=sites_sm[1]*-1;wn=sm_sim$`AR-SLu`[,1]
 	# end testing
 	UnsWater<-function(psi_m,uns_depth,theta_r,theta_s,bub_press,lambda,depth){
 		#-----------------------------------------------------------------------
@@ -55,14 +55,18 @@ unSWC<-function(soil_data,uns_depth,wn,units='mm'){
 	soil_info<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
 	
 	theta_s<-as.numeric(soil_info$SAT)
-	theta_r<-as.numeric(soil_info$WP)
+	#theta_r<-as.numeric(soil_info$WP)/2
+	theta_r<-0.0
 	lambda<-as.numeric(1/soil_info$B)
 	bub_press<-as.numeric(soil_info$bubbling_p)
 	theta_i<-wn/(soil_data[6]*1000)
-	theta_i[theta_i>=theta_s]<-theta_s-0.001
-	theta_i[theta_i<=theta_r]<-theta_r+0.001
+	theta_i[theta_i>=theta_s]<-theta_s-0.0001
+	theta_i[theta_i<=theta_r]<-theta_r+0.0001
 	psi_m = bub_press/((((theta_i-theta_r)/(theta_s-theta_r)))^(1/lambda));
 	psi_m<-as.numeric(psi_m)
+	#use Saxton and Rawls 2006
+	#psi_m<-soil_info$A*(theta_i)^(-1*soil_info$B)
+	#psi_m<-as.numeric(psi_m)*-101.97162129779
 	uns_wn<-UnsWater(psi_m,uns_depth,theta_r,theta_s,bub_press,lambda,soil_data[6])
 	uns_wn<-mapply(FUN=xts,uns_wn,MoreArgs = list(order.by=time(wn)),SIMPLIFY = F)
 	uns_theta<-uns_wn[[1]]/(uns_depth*1000)
