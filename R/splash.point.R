@@ -188,8 +188,13 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	sat<-1-(bd/dp)
 	# volumetric water content at 33kPa [m3/m3]
 	fc<-(sat/bd)*(0.4760944 + (0.9402962 - 0.4760944)*clay^0.5)*exp(-(0.05472678*sand - 0.01* OM)/(sat/bd))
+	##errors in the empirical fitting, assume boundaries
 	fc[fc<0]<-0.1
-	fc[fc>1]<-1
+	if(!is.numeric(sand)){
+		fc[fc>sat]<-0.9*sat[fc>sat]
+	}else{
+		fc[fc>sat]<-0.9*sat
+	}
 	# volumetric water content at 1500kPa [m3/m3]
 	wp<- fc*(0.2018522 + (0.7809203 - 0.2018522)*clay^0.5) 
 	########################################################################################
@@ -214,7 +219,12 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	# 101.97162129779 converts from KPa to mmH2O
 	bubbling_p<-bubbling_p*-101.97162129779
 	# If positive pressure: error in empirical fitting, water repelency or positive air entry pressure?? see  Wang et al., 2003, 10.1016/B978-0-444-51269-7.50009-6 :	#assume air entry pressure at the intercept of the log-log retention curve
-	bubbling_p[bubbling_p>0]<-coef_A*-101.97162129779
+	if(!is.numeric(sand)){
+		bubbling_p[bubbling_p>0]<-coef_A[bubbling_p>0]*-101.97162129779
+	}else{
+		bubbling_p[bubbling_p>0]<-coef_A*-101.97162129779
+	}
+	
 	#I still found around n=100 air entry pressures higher than 33kPa using the testing db (n=68567), assume 90% of saturation for those samples
 	#bubpt[bubpt<=-3365.064]<-(33-(33*((sat-fc)/(0.9*sat-fc))))*101.97162129779
 	########################################################################################
