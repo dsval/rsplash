@@ -80,17 +80,17 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		Au<-upslope_areav2(elev, type,tmpdir)
 		# 1.2.2 get latitude from the high res dem
 		lat<-getlatitude(elev, filename='lat.grd')
-		system("gdaldem slope -s 111120 -co BIGTIFF=YES rawdem.tif slope_deg.tif")
-		system("gdaldem aspect -zero_for_flat -co BIGTIFF=YES rawdem.tif aspect_deg.tif")
+		system("gdaldem slope -s 111120 rawdem.tif slope_deg.tif")
+		system("gdaldem aspect -zero_for_flat rawdem.tif aspect_deg.tif")
 		terraines<-raster::stack(list(slope='slope_deg.tif',aspect='aspect_deg.tif'))
 		# get resolution in m2
 		resolution<-area(elev,filename='area.grd',overwrite=T)
 		resolution<-calc(resolution,function(x){sqrt(x)*1000})
 		gc()
-		cat("... it took","\n")
+		
 		end.time<-Sys.time()
-		end.time-start.time
-		cat("...","\n")
+		timetaken<-end.time-start.time
+		cat(paste0("... it took"),timetaken,"\n")
 		
 	}else{
 		# get resolution in m2
@@ -545,7 +545,8 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 		d <- parallel:::recvOneData(cl)
 		# error?
 		if (! d$value$success) {
-			stop('cluster error')
+			
+			stop('cluster error:',"\n",d$value$value)
 		}
 		# which block is this?
 		b <- d$value$tag
@@ -746,7 +747,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		d <- parallel:::recvOneData(cl)
 		# error?
 		if (! d$value$success) {
-			stop('error!! check the data...')
+			stop('cluster error:',"\n",d$value$value)
 		}
 		# which block is this?
 		b <- d$value$tag
