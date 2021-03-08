@@ -301,7 +301,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 			cl <- getCluster()
 			on.exit( returnCluster() )
 			nodes <- length(cl)
-			bs <- blockSize(x, minblocks=nodes)
+			bs <- blockSize(x, minblocks=nodes*2)
 			parallel:::clusterExport(cl, c('x','func','indmonth','bs'),envir=environment()) 
 			pb <- pbCreate(bs$n)
 			pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 1)
@@ -363,7 +363,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 				d <- parallel:::recvOneData(cl)
 				# error?
 				if (! d$value$success) {
-					stop('error!! check the data...')
+					stop('cluster error:',"\n",d$value$value)
 				}
 				# which block is this?
 				b <- d$value$tag
@@ -490,7 +490,7 @@ spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  A
 	on.exit( returnCluster() )
 	nodes <- length(cl)
 	message('Using cluster with ', nodes, ' nodes')
-	bs <- blockSize(sw_in, minblocks=nodes)
+	bs <- blockSize(sw_in, minblocks=nodes*2)
 	parallel:::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 3)
@@ -676,7 +676,7 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	cl <- getCluster()
 	on.exit( returnCluster() )
 	nodes <- length(cl)
-	bs <- blockSize(sw_in, minblocks=nodes)
+	bs <- blockSize(sw_in, minblocks=nodes*2)
 	parallel:::clusterExport(cl, c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bf_in', 'tdin','bs'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 1)

@@ -53,7 +53,7 @@ upslope_area<-function(dem,resolution){
 	# hg<-raster(dem)
 	# hg<-setValues(hg,hg_values)
 	
-	return(stack(areacatch,ncellin,ncellout))
+	return(raster::stack(areacatch,ncellin,ncellout))
 	
 }
 upslope_areav2<-function(dem,type,tmpd){
@@ -122,7 +122,7 @@ upslope_areav2<-function(dem,type,tmpd){
 	# hg<-setValues(hg,hg_values)
 	# hg<-log((ups_area)/hg_sl)
 		
-	return(stack(ups_area,ncellin,ncellout))
+	return(raster::stack(ups_area,ncellin,ncellout))
 	
 	
 }
