@@ -61,7 +61,7 @@ upslope_areav2<-function(dem,type,tmpd){
 	# require(raster)
 	# Set working directory to your location
 	setwd(tmpd)
-	writeRaster(dem,"rawdem.tif",datatype='INT2S',options=c('BIGTIFF=YES',"COMPRESS=NONE"),format="GTiff", overwrite=TRUE)
+	writeRaster(dem,"rawdem.tif",datatype='INT2S',format="GTiff", overwrite=TRUE)
 		
 	if(type == 'MPIcluster'){
 		# Pitremove
