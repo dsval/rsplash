@@ -187,7 +187,7 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	# volumetric water content at saturation [m3/m3]
 	sat<-1-(bd/dp)
 	# volumetric water content at 33kPa [m3/m3]
-	fc<-(sat/bd)*(0.4760944 + (0.9402962 - 0.4760944)*clay^0.5)*exp(-(0.05472678*sand - 0.01* OM)/(sat/bd))
+	fc<-(sat/bd)*(0.4760944 + (0.9402962 - 0.4760944)*clay^0.5)*exp(-1*(0.05472678*sand - 0.01* OM)/(sat/bd))
 	##errors in the empirical fitting, assume boundaries
 	fc[fc<0]<-0.1
 	if(!is.numeric(sand)){
