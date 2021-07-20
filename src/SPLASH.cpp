@@ -192,15 +192,10 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
-     // define hydraulic gradient 
-    double hyd_grad = 0.0;
-    if (depth>=2.0){
-        hyd_grad =  sqrt(pow(dsin(slop),2)+pow(dtan(slop),2));
-    } else {
-        hyd_grad = dtan(slop);
-    }
+    
     // assuming gravity and water density constants, define coefficient to calc graviational potential
     double KG_o=1000.0/(997*Global::G);
+    double hyd_grad = dtan(slop);
     //if(isnan(soil_info[12])==1 ){
     //    hyd_grad = (dtan(slop));
     //} else{
@@ -233,7 +228,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.01;
     }else if (wtd > depth){
         wtd = depth;
     }
@@ -262,7 +257,6 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
-    
     double sw = 0.0;
     // when the soil depth exeeds 2m:
      if (depth>=2.0){
@@ -280,6 +274,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
+    
     
     // ####################################################################################################################
     // experimental - other soil moisture limiting functions
@@ -396,7 +391,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // Water supply calc as difference of soil and water potentials mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     /*
-    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow);
+    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow,0.0);
     etr dn_dumm = evap.get_vals();
     double pet_d = dn_dumm.pet;
     double pw = dn_dumm.pw;
@@ -406,15 +401,20 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // //9.2. Leaf water potential at critical leaf RWC [MPa]
     // molar volume litre/mol
     double v_m = 18/pw;
-    double psi_l_c = ((0.082*(273.15+tc)*log(0.90))/(v_m))*0.101325;
+    //double psi_l_c = ((0.082*(273.15+tc)*log(0.90))/(v_m))*0.101325;
     // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    double Rp = (-0.033-psi_l_c)/pet_d;
+    //double Rp = (-0.033-psi_l_c)/pet_d;
 
     // //9.3. Leaf water potential assuming RWC at 98% [MPa]
     double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
+    //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
+    double Rp = (-1.0*psi_l)/pet_d;
+    // ratio of water potentials
+    double psi_ratio = psi_m_mpa/psi_l;
         
     //9.5. water supply mm/day
-    double sw = (psi_m_mpa-psi_l)/Rp;
+    sw = (psi_m_mpa-psi_l)/Rp;
+    //sw = 1.0 - (2.0 * psi_ratio/3.0);
     if (sw < 0.0 || isnan(sw)==1) {
           sw = 0.0;
     }
@@ -460,15 +460,22 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
 	double int_perm = Ksat/Global::fluidity;
 	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
-    double inflow = pn + 0.01*dn.cond + snowmelt;
+    double inflow = pn + 0.1*dn.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
-    double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,0.0,lambda);
+    double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
     double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
     // 5.1.5. calculate Hortonian (infiltration excess) runoff
     double ro_h = max(inflow-infi,0.0);
     // 5.1.6. calculate recharge
     double R = infi - dn.aet;
+    // 5.1.7. define the hydraulic gradient assuming steady state: z: I=Ks(dh/dz +1), x: tan(slop)
+    double Kunsat = Ksat_visc * pow((theta_i/theta_s),(3.0+(2.0/lambda)));
+   // when the soil depth exeeds 2m:
+     if (depth>=2.0){
+       double hyd_grad_z = (infi/(Ksat_visc*24.0));
+       hyd_grad =  sqrt(pow((hyd_grad_z),2)+pow(dtan(slop),2));
+    } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.2. Calculate the inputs from upslope drainage
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -524,7 +531,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.01;
     }else if (wtd > depth){
         wtd = depth;
     }
@@ -611,10 +618,12 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.01;
     }else if (wtd > depth){
         wtd = depth;
     }
+    
+
     //5.6.4 calculate pixel's cross sectional area saturated part
     Acs_out = (depth - wtd) * sid_oct * cellout;
     // transmitance over the unsaturated part of the profile [mm^2/h]
@@ -734,16 +743,9 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
-      // define hydraulic gradient 
-    double hyd_grad = 0.0;
-    
-    if (depth>=2.0){
-        hyd_grad =  sqrt(pow(dsin(slop),2)+pow(dtan(slop),2));
-    } else {
-        hyd_grad = dtan(slop);
-    }
     // assuming gravity and water density constants, define coefficient to calc gravitional potential
     double KG_o=1000.0/(997*Global::G);
+    double hyd_grad = dtan(slop);
     //if(isnan(soil_info[12])==1 ){
     //    hyd_grad = (dtan(slop));
     //} else{
@@ -776,7 +778,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.01;
     }else if (wtd > depth){
         wtd = depth;
     }
@@ -804,7 +806,6 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
-    
     double sw = 0.0;
     // when the soil depth exeeds 2m:
      if (depth>=2.0){
@@ -813,7 +814,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     } else{
     // bedrock < 2 m    
         Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
-    
+        
         sw = Global::Cw*((wn-RES)/(Wmax-RES));
     }
        
@@ -822,7 +823,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
-    
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Metselaar approach
     /*
@@ -904,7 +905,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
 	double int_perm = Ksat/Global::fluidity;
 	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
-    double inflow = pn + 0.01*dvap.cond + snowmelt;
+    double inflow = pn + 0.1*dvap.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,0.0,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
@@ -913,6 +914,13 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double ro_h = max(inflow-infi,0.0);
     // 5.1.6. calculate recharge
     double R = infi - dvap.aet;
+    // 5.1.7. define the hydraulic gradient assuming steady state: z: I=Ks(dh/dz +1), x: tan(slop)
+    double Kunsat = Ksat_visc * pow((theta_i/theta_s),(3.0+(2.0/lambda)));
+    // when the soil depth exeeds 2m:
+     if (depth>=2.0){
+       double hyd_grad_z = (infi/(Ksat_visc*24.0));
+       hyd_grad =  sqrt(pow((hyd_grad_z),2)+pow(dtan(slop),2));
+    } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.2. Calculate the inputs from upslope drainage
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -968,7 +976,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.01;
     }else if (wtd > depth){
         wtd = depth;
     }
@@ -1055,10 +1063,11 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     wtd = ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.00;
     }else if (wtd > depth){
         wtd = depth;
     }
+    
     //5.6.4 calculate pixel's cross sectional area saturated part
     Acs_out = (depth - wtd) * sid_oct * cellout;
     // transmitance over the unsaturated part of the profile [mm^2/h]
@@ -1238,7 +1247,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     }
     // Equilibrate (diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 100)
     int spin_count = 1;
-    while ((diff_sm > 1.0) && (diff_swe > 1.0) ){
+    while ((diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 9)){
         for (int i=0; i<n; i++){
             // Get preceeding soil moisture status:
             if (i == 0){
@@ -1497,7 +1506,7 @@ double SPLASH::get_wtd(double wn, double depth, double bub_press,double theta_s,
     double wtd= ((bub_press-psi_m)/1000.0);
     // failsafe for low water contents where there is no saturated section or big storms
     if (wtd < 0.0 || isnan(wtd)==1){
-        wtd = 0.0;
+        wtd = 0.01;
     }else if (wtd > depth){
         wtd = depth;
     }

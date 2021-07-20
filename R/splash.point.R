@@ -380,7 +380,10 @@ snowfall_prob<-function(tc,lat,elev){
 	# Ref:      Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., 2018. Spatial variation of the 
 	# 		  rain-snow temperature threshold across the Northern Hemisphere. Nat. Commun. 9, 1–9. doi:10.1038/s41467-018-03629-7
 	# ************************************************************************
-	p_snow<-1/(1+exp(-0.5827+1.319*as.numeric(tc)-as.numeric(elev)*4.18E-4-abs(as.numeric(lat))*1.140E-2))
+	# calibration set
+	#p_snow<-1/(1+exp(-0.5827+1.319*as.numeric(tc)-as.numeric(elev)*4.18E-4-abs(as.numeric(lat))*1.140E-2))
+	#all the data
+	p_snow<-1/(1+exp(-0.4710405934+1.0473543991*as.numeric(tc)-as.numeric(elev)*0.0004596581-abs(as.numeric(lat))*0.0110592101))
 	return(p_snow)
 }
 
@@ -417,9 +420,9 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
 	if(length(Au)==1){
-		#if there is no information on how many cell drain to this point, assume 2 octogonal cells in 1 cell out
-		ncellin<-2
-		ncellout<-1
+		#if there is no information on how many cell drain to this point, assume 3 sides of the octogonal cell
+		ncellin<-3
+		ncellout<-3
 		soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
 	}else{
 		ncellin<-Au[2]
@@ -499,9 +502,9 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
 	if(length(Au)==1){
-		#if there is no information on how many cell drain to this point, assume 2 octogonal cells in 1 cell out
-		ncellin<-2
-		ncellout<-1
+		#if there is no information on how many cell drain to this point, assume 3 sides of the octogonal cell
+		ncellin<-3
+		ncellout<-3
 		soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
 	}else{
 		ncellin<-Au[2]
