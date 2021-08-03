@@ -469,12 +469,14 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double ro_h = max(inflow-infi,0.0);
     // 5.1.6. calculate recharge
     double R = infi - dn.aet;
-    // 5.1.7. define the hydraulic gradient assuming steady state: z: I=Ks(dh/dz +1), x: tan(slop)
-    double Kunsat = Ksat_visc * pow((theta_i/theta_s),(3.0+(2.0/lambda)));
-   // when the soil depth exeeds 2m:
+    // 5.1.7. define the hydraulic gradient assuming steady state: z: I=Ks(dh/dz +1), x: tan(slop), if theta<fc no vertical flow outside the column
+    double theta_m = max(Wmax/(depth *1000.0),theta_i);
+    double Kunsat = Ksat_visc * pow((theta_m/theta_s),(3.0+(2.0/lambda)));
+    // when the soil depth exeeds 2m:
+    double hyd_grad_out = 0.0;
+    double hyd_grad_z = (infi/(Kunsat*24.0));
      if (depth>=2.0){
-       double hyd_grad_z = (infi/(Ksat_visc*24.0));
-       hyd_grad =  sqrt(pow((hyd_grad_z),2)+pow(dtan(slop),2));
+        hyd_grad_out =  sqrt(pow((hyd_grad_z),2)+pow(hyd_grad,2));
     } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.2. Calculate the inputs from upslope drainage
@@ -647,7 +649,12 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //double Q = (Q_sat+Q_uns)*hyd_grad;
     //double Q = (Q_sat+Q_uns)*0.3;
     double Q = (T*Ai)/1000;
+    double Drain_out = T;
 
+    if (depth >= 2.0){
+        Drain_out = (T_sat+T_uns)*hyd_grad_out;
+    } 
+    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.7. Calculate same day input q_in_f from upslope drainage
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -670,7 +677,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.8. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    sm += (q_in_f-T);
+    sm += (q_in_f-Drain_out);
     //sm -= (T);
         // failsafe for low water contents or big storms
     if (sm > SAT){
@@ -823,7 +830,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
-
+    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Metselaar approach
     /*
@@ -914,12 +921,14 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double ro_h = max(inflow-infi,0.0);
     // 5.1.6. calculate recharge
     double R = infi - dvap.aet;
-    // 5.1.7. define the hydraulic gradient assuming steady state: z: I=Ks(dh/dz +1), x: tan(slop)
-    double Kunsat = Ksat_visc * pow((theta_i/theta_s),(3.0+(2.0/lambda)));
+    // 5.1.7. define the hydraulic gradient assuming steady state: z: I=Ks(dh/dz +1), x: tan(slop), if theta<fc no vertical flow outside the column
+    double theta_m = max(Wmax/(depth *1000.0),theta_i);
+    double Kunsat = Ksat_visc * pow((theta_m/theta_s),(3.0+(2.0/lambda)));
     // when the soil depth exeeds 2m:
+    double hyd_grad_out = 0.0;
+    double hyd_grad_z = (infi/(Kunsat*24.0));
      if (depth>=2.0){
-       double hyd_grad_z = (infi/(Ksat_visc*24.0));
-       hyd_grad =  sqrt(pow((hyd_grad_z),2)+pow(dtan(slop),2));
+        hyd_grad_out =  sqrt(pow((hyd_grad_z),2)+pow(hyd_grad,2));
     } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.2. Calculate the inputs from upslope drainage
@@ -1091,7 +1100,11 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //double Q = (Q_sat+Q_uns)*hyd_grad;
     //double Q = (Q_sat+Q_uns)*0.3;
     double Q = (T*Ai)/1000;
+    double Drain_out = T;
 
+    if (depth >= 2.0){
+        Drain_out = (T_sat+T_uns)*hyd_grad_out;
+    } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.7. Calculate same day input q_in_f from upslope drainage
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1113,7 +1126,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.8. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    sm += (q_in_f-T);
+    sm += (q_in_f-Drain_out);
     //sm -= (T);
         // failsafe for low water contents or big storms
     if (sm > SAT){
@@ -1134,7 +1147,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     dsoil.swe = snow;
     dsoil.tdr = tdrain_out;
     dsoil.sqout = qin_nday; 
-    dsoil.bflow = T;
+    dsoil.bflow = Drain_out;
     dsoil.nd = nd;
     
    

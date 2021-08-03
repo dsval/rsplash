@@ -63,7 +63,7 @@ upslope_areav2<-function(dem,type,tmpd){
 	setwd(tmpd)
 	writeRaster(dem,"rawdem.tif",datatype='INT2S',format="GTiff", overwrite=TRUE)
 		
-	if(type == 'MPIcluster'){
+	if(type != 'SOCKcluster'){
 		# Pitremove
 		system("pitremove -z rawdem.tif -fel dem_nopit.tif")
 		
