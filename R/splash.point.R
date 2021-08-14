@@ -190,20 +190,22 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	fc<-(sat/bd)*(0.4760944 + (0.9402962 - 0.4760944)*clay^0.5)*exp(-1*(0.05472678*sand - 0.01* OM)/(sat/bd))
 	##errors in the empirical fitting, assume boundaries
 	fc[fc<0]<-0.1
-	if(!is.numeric(sand)){
-		fc[fc>sat]<-0.9*sat[fc>sat]
-	}else{
-		fc[fc>sat]<-0.9*sat
-	}
+	# if(!is.numeric(sand)){
+	# 	fc[fc>sat]<-0.9*sat[fc>sat]
+	# }else{
+	# 	fc[fc>sat]<-0.9*sat
+	# }
+	#fc[fc>sat]<-0.9*sat[fc>sat]
 	# volumetric water content at 1500kPa [m3/m3]
 	wp<- fc*(0.2018522 + (0.7809203 - 0.2018522)*clay^0.5) 
 	########################################################################################
 	# 04. calc Saturated hydraulic conductivity Ksat [mm/hr] Balland et al. (2008)
 	######################################################################################## 
-	L_10_Ksat<- -2.653985+3.092411*log10(dp-bd)+4.214627*sand
-	ksat<-10^L_10_Ksat
-	# to mm/h
-	ksat<-ksat*10
+	# L_10_Ksat<- -2.653985+3.092411*log10(dp-bd)+4.214627*sand
+	# ksat<-10^L_10_Ksat
+	# # to mm/h
+	# ksat<-ksat*10
+	
 	########################################################################################
 	# 05. calc shape parameters water retention Brooks and Corey curve Saxton and Rawls (2006)
 	######################################################################################## 
@@ -211,6 +213,10 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	coef_B<-(log(1500)-log(33))/(log(fc)-log(wp))
 	coef_A<-exp(log(33)+coef_B*log(fc))
 	coef_lambda<-1/coef_B
+	########################################################################################
+	# 04b. calc Saturated hydraulic conductivity Ksat [mm/hr] from calibrated Saxton (2006)
+	######################################################################################## 
+	ksat<--47.59879+(3290.42886*(sat-fc)^(2.56679-coef_lambda ))
 		
 	moist_fvol33init<-0.278*sand+0.034*clay+0.022*OM-0.018*(sand*OM)-0.027*(clay*OM)-0.584*(sand*clay)+0.078
 	moist_fvol33<-moist_fvol33init+(0.636*moist_fvol33init-0.107)
