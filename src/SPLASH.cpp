@@ -183,7 +183,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = WP/2;
+    double RES =  1.0;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -252,20 +252,28 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 02. Calculate maximum water retention in the column when the soil depth exeeds 2m
     // ####################################################################################################################
     double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
-    double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
+    //double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
+    double Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    
+    
+    
     
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
     double sw = 0.0;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //Metselaar approach
+    
+    
+
     // when the soil depth exeeds 2m:
-     if (depth>=2.0){
+     if (depth>=3.0){
         double RES_z = theta_r * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
-        Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
-        
+              
         sw = Global::Cw*((wn-RES)/(Wmax-RES));
     }
        
@@ -275,6 +283,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
          sw = Global::Cw;
      }
     
+    /*
     
     // ####################################################################################################################
     // experimental - other soil moisture limiting functions
@@ -337,7 +346,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Metselaar approach
-    /*
+    
     double alph = 4.0 + 2.0*lambda;
     double theta_l = (theta_wp) + 0.9*(theta_s-theta_wp);
     double TH_l = (theta_l-theta_r)/(theta_s-theta_wp);
@@ -350,7 +359,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     } else if (sw > Global::Cw){
           sw = Global::Cw;
     }
-    */
+    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Feddes approach
     // double h1 = 100.0;
@@ -368,18 +377,20 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //     sw = (psi_m-h4)/(h3 - h4);
     // }
     // sw *= Global::Cw;
-
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //Campbel approach
-    // double awc = (wn-RES)/(Wmax-RES);
-    // double sw = 1.0 - pow((1.0 + 1.3 * awc ),(-1.0/lambda));
+    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow,0.0);
+    etr dn_dumm = evap.get_vals();
+    double pet_d = dn_dumm.pet;
+    double awc = (wn-RES)/(Wmax-RES);
+    sw = 1.0 - pow((1.0 + 1.3 * awc ),(-1.0/lambda));
     
-    // sw *= Global::Cw;
-    // if (sw < 0.0 || isnan(sw)==1) {
-    //      sw = 0.0;
-    //  } else if (sw > Global::Cw){
-    //      sw = Global::Cw;
-    //  }
+    sw *= pet_d;
+    
+    if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    }
+    
 
     //Bonan, 2014 gradient assuming 2mmol root conductance
     // double psi_m_mpa = psi_m * 0.00000980665;
@@ -390,7 +401,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Water supply calc as difference of soil and water potentials mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    /*
+    
+
     evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow,0.0);
     etr dn_dumm = evap.get_vals();
     double pet_d = dn_dumm.pet;
@@ -408,17 +420,20 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // //9.3. Leaf water potential assuming RWC at 98% [MPa]
     double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
     //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    double Rp = (-1.0*psi_l)/pet_d;
-    // ratio of water potentials
+    double Rp = (0.02-psi_l)/pet_d;
+    // dimensioles Psi_s eq. 9.17 Campbell, 1998 
     double psi_ratio = psi_m_mpa/psi_l;
         
     //9.5. water supply mm/day
     sw = (psi_m_mpa-psi_l)/Rp;
-    //sw = 1.0 - (2.0 * psi_ratio/3.0);
+    //sw = (1.0 - (2.0 * psi_ratio/3.0))* pet_d;
     if (sw < 0.0 || isnan(sw)==1) {
           sw = 0.0;
     }
     */
+    
+
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -525,7 +540,8 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 5.2.2. Estimate minimum theoretical drainage ~at  field capacity Wmax
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // define theta_i from Wmax
-    Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    //Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0);
     theta_i = (Wmax)/(depth*1000.0);
     // calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
@@ -741,7 +757,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = WP/2;
+    double RES = 1.0;
     //double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -809,18 +825,21 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 02. Calculate maximum water retention in the column when the soil depth exeeds 2m
     // ####################################################################################################################
     double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
-    double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
-    // ####################################################################################################################
+    //double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
+    double Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+   // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
     double sw = 0.0;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        
     // when the soil depth exeeds 2m:
-     if (depth>=2.0){
+     if (depth>=3.0){
         double RES_z = theta_r * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
-        Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+        //Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
         
         sw = Global::Cw*((wn-RES)/(Wmax-RES));
     }
@@ -846,34 +865,40 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     } else if (sw > Global::Cw){
           sw = Global::Cw;
     }
-    */
+    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Water supply calc as difference of soil and water potentials mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    /*
-    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow);
+    
+    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow,0.0);
     etr dn_dumm = evap.get_vals();
     double pet_d = dn_dumm.pet;
-    double pw = dn_dumm.pw/1000.0;
+    double pw = dn_dumm.pw;
         
     //9.1. Soil matric potential to MPa
     double psi_m_mpa = psi_m * 0.00000980665;
     // //9.2. Leaf water potential at critical leaf RWC [MPa]
-    // molar volume
+    // molar volume litre/mol
     double v_m = 18/pw;
-    double psi_l_c = ((0.082*(273.15+tc)*log(0.90))/(v_m))*0.101325;
+    //double psi_l_c = ((0.082*(273.15+tc)*log(0.90))/(v_m))*0.101325;
     // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    double Rp = (-0.033-psi_l_c)/pet_d;
+    //double Rp = (-0.033-psi_l_c)/pet_d;
 
     // //9.3. Leaf water potential assuming RWC at 98% [MPa]
     double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
+    //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
+    double Rp = (0.02-psi_l)/pet_d;
+    // dimensioles Psi_s eq. 9.17 Campbell, 1998 
+    double psi_ratio = psi_m_mpa/psi_l;
         
     //9.5. water supply mm/day
-    double sw = (psi_m_mpa-psi_l)/Rp;
+    sw = (psi_m_mpa-psi_l)/Rp;
+    //sw = (1.0 - (2.0 * psi_ratio/3.0))*pet_d;
     if (sw < 0.0 || isnan(sw)==1) {
           sw = 0.0;
     }
     */
+    
     // ####################################################################################################################
     // 04. Snowpack and energy Balances
     // ####################################################################################################################  
@@ -977,7 +1002,8 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 5.2.2. Estimate minimum theoretical drainage ~at  field capacity Wmax
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // define theta_i from Wmax
-    Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    //Wmax = pow((coeff_A/(depth*1000)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+    Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0);
     theta_i = (Wmax)/(depth*1000.0);
     // calculate matric potential (mmH2O)
     psi_m = bub_press/pow((((theta_i-theta_r)/(theta_s-theta_r))),(1/lambda));
@@ -1187,7 +1213,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    double RES = WP/2;
+    double RES = 1.0;
     //double RES = soil_info[7];
 
     double theta_s = SAT/(depth *1000.0);
@@ -1479,9 +1505,9 @@ double SPLASH::inf_GA(double bub_press,double theta_i,double Ksat,double theta_s
 			I = Ksat*tdur;
 		}else{
             //time ponding
-			tp = delta_theta*delta_head*((1/(r-Ksat))+(log((Ksat/(Ksat-r))+1)/Ksat));
-            //tp = (Ksat*-1.0*delta_theta*delta_head)/(r*(r-Ksat));
-			if(isnan(tp)==1){
+			//tp = delta_theta*delta_head*((1/(r-Ksat))+(log((Ksat/(Ksat-r))+1)/Ksat));
+            tp = (Ksat*delta_theta*-1.0*delta_head)/(r*(r-Ksat));
+			if(tp <= 0.0 || isnan(tp)==1){
 				// massive storms, (Ksat/(Ksat-r))+1) result in negative
                 tp=0.01;
 			}

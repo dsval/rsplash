@@ -65,10 +65,10 @@ namespace Global {
     extern const double Po(101325);       // (Allen, 1973)
     extern const double R(8.31447);       // (Moldover et al., 1988)
     extern const double To(288.15);       // (Berberan-Santos et al., 1997)
-    //extern const double w(0.26);          // (Priestley & Taylor, 1972)
-    extern const double w(-0.3);          // (Priestley & Taylor, 1972)
-    extern const double Cw(0.6);         // (Federer, 1982)
-   // extern const double Cw(1.05);         // (Federer, 1982)
+    extern const double w(0.26);          // (Priestley & Taylor, 1972)
+    //extern const double w(-0.3);          // (Priestley & Taylor, 1972)
+    extern const double Cw(1.0);         // (Federer, 1982)
+    //extern const double Cw(0.3);         // (Federer, 1982)
     extern const double Wm(180.0);        // (Cramer & Prentice, 1988)
     extern const double PI(3.141592653589793);  // pi
     extern const double pir = (PI/180.0); // degrees to radians

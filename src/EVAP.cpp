@@ -105,13 +105,15 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 2. Calculate water-to-energy conversion (econ), m^3/J
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
     patm = elv2pres(elv);
     s = sat_slope(tc);
     lv = enthalpy_vap(tc);
-    pw = density_h2o(tw, patm);
+    pw = density_h2o(tc, patm);
     g = psychro(tc, patm);
-    econ = s/(lv*pw*(s + g));
-    //econ = s/(lv*pw*(s + 0.24*g));
+    //econ = s/(lv*pw*(s + g));
+    // max evaporation from Yang & Roderick (2019) doi:10.1002/qj.3481
+    econ = s/(lv*pw*(s + 0.24*g));
     visc = calc_viscosity_h2o(tw,patm);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 3. Calculate daily condensation (wc), mm
@@ -126,17 +128,24 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5. Estimate daily potential evapotranspiration (pet_d), mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    pet_d = (1.0 + Global::w)*eet_d;
-    //pet_d = eet_d;
+    // limit alpha Qualls & Crago (2020) doi:10.1029/2019WR026766
+    //double alpha = (1.0 + min(Global::w, g/s));
+    // average alpha Assouline, et al. (2016) doi:10.1002/2015WR017504.
+    double alpha = (1.0 + ((s+g)/s))/2;
+
+    //pet_d = (alpha)*eet_d;
+    pet_d = eet_d;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 6. Calculate variable substitute (rx), (mm/hr)/(W/m^2)
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    rx = (3.6e6)*(1.0 + Global::w)*econ;
+    //rx = (3.6e6)*(alpha)*econ;
+    rx = (3.6e6)*econ;
+    ////// calculate cw, assuming lim=1 at max demand (cos(h) =1)
     // maximum instatntaneous demand (pet_max), mm/hr
     double pet_max = rx*((rw*(ru+rv))- rnl) ;
     //assume cw = pet_max
-    //sw *= pet_max;
-    //rx = (3.6e6)*econ;
+    sw *= pet_max*0.55;
+    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Estimate daily water supply, mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
