@@ -38,6 +38,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 	ztime<-time(pn)
 	# time frequency
 	time.freq<-abs(as.numeric(ztime[1]-ztime[2], units = "days"))
+	
 	###########################################################################
 	# 02. Start the calculations for daily inputs
 	###########################################################################
@@ -198,13 +199,7 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	#fc[fc>sat]<-0.9*sat[fc>sat]
 	# volumetric water content at 1500kPa [m3/m3]
 	wp<- fc*(0.2018522 + (0.7809203 - 0.2018522)*clay^0.5) 
-	########################################################################################
-	# 04. calc Saturated hydraulic conductivity Ksat [mm/hr] Balland et al. (2008)
-	######################################################################################## 
-	# L_10_Ksat<- -2.653985+3.092411*log10(dp-bd)+4.214627*sand
-	# ksat<-10^L_10_Ksat
-	# # to mm/h
-	# ksat<-ksat*10
+	
 	
 	########################################################################################
 	# 05. calc shape parameters water retention Brooks and Corey curve Saxton and Rawls (2006)
@@ -216,7 +211,26 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	########################################################################################
 	# 04b. calc Saturated hydraulic conductivity Ksat [mm/hr] from calibrated Saxton (2006)
 	######################################################################################## 
-	ksat<--47.59879+(3290.42886*(sat-fc)^(2.56679-coef_lambda ))
+	ksat<-(6587*(sat-fc)^(3.347-coef_lambda ))
+	
+	#### Correction for peatlands very high SOM
+	########################################################################################
+	# 04. calc Saturated hydraulic conductivity Ksat [mm/hr] Balland et al. (2008)
+	######################################################################################## 
+	
+	# L_10_Ksat<- -2.653985+3.092411*log10(dp-bd)+4.214627*sand
+	# ksat_ball<-10^L_10_Ksat
+	# # to mm/h
+	# ksat_ball<-ksat_ball*10
+	# 
+	# 
+	# if(!is.numeric(sand)){
+	# 	ksat[ksat<=0] <- ksat_ball[ksat<=0]
+	# }else{
+	# 	ksat[!is.na(ksat) & ksat<=0]<-ksat_ball[!is.na(ksat) & ksat<=0]
+	# }
+	# 
+	
 		
 	moist_fvol33init<-0.278*sand+0.034*clay+0.022*OM-0.018*(sand*OM)-0.027*(clay*OM)-0.584*(sand*clay)+0.078
 	moist_fvol33<-moist_fvol33init+(0.636*moist_fvol33init-0.107)
@@ -228,7 +242,7 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	if(!is.numeric(sand)){
 		bubbling_p[bubbling_p>0]<-coef_A[bubbling_p>0]*-101.97162129779
 	}else{
-		bubbling_p[bubbling_p>0]<-coef_A*-101.97162129779
+		bubbling_p[!is.na(bubbling_p)& bubbling_p>0]<-coef_A[!is.na(bubbling_p)& bubbling_p>0]*-101.97162129779
 	}
 	
 	#I still found around n=100 air entry pressures higher than 33kPa using the testing db (n=68567), assume 90% of saturation for those samples
@@ -410,6 +424,8 @@ rspin_up <-function(lat,elev, sw_in, tc, pn, slop,asp, y,soil_data, Au,resolutio
 	# Features: Wrapper of the c++ function, updates soil moisture and snow water equivalent until equilibrium
 	# Depends:  soil_hydro, snowfall_prob, frain_func
 	# ************************************************************************
+	#### correct orientation slopes, from standard 0deg s north, in Allen, 2006 doi:10.1016/j.agrformet.2006.05.012 0deg is south!!!
+	asp<-asp-180
 	# get number of days in the year y
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 	# interpolate monthly to daily
@@ -477,6 +493,8 @@ run_one_year <- function(lat,elev,slop,asp,sw_in, tc, pn, wn, y, snow,soil_data,
 	# Features: Wrapper of the c++ function
 	# Depends:  soil_hydro, snowfall_prob, frain_func
 	# ************************************************************************
+	#### correct orientation slopes, from standard 0deg s north, in Allen, 2006 doi:10.1016/j.agrformet.2006.05.012 0deg is south!!!
+	asp<-asp-180
 	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 	#interpolate if inputs are monthly
 	if(length(sw_in)==12){sw_in<-avg.interp(sw_in,y)}

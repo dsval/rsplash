@@ -62,7 +62,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 			# xmat <- getValues(x, row=bs$row[i], nrows=bs$nrows[i] )
 			# ymat <- getValues(y, row=bs$row[i], nrows=bs$nrows[i] )
 			xncells<-cellFromRow(x,bs$row[i]:(bs$row[i]+ bs$nrows[i]-1))
-			xmat<-getValues(x,bs$row[i], bs$nrows[i])
+			#xmat<-getValues(x,bs$row[i], bs$nrows[i])
 			xydata<-xyFromCell(x, xncells)
 			
 			# write the chunk of results, bs$row[i] is putting the results in the correct rows

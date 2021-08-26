@@ -584,46 +584,42 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.3. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double sm = wn + R + q_in_o;
+    /// receives qin from the previous day
+    double sm = wn + q_in_o;
+    // error long winter, snowmelt
+    if (sm > SAT){
+        sm = SAT;        
+    } else if (sm < RES){
+        // Bucket is too empty:
+        sm = RES;
+    } 
 
+    // receives rechearge from the current day
+    sm += R;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.4. Calculate Dunne  - saturation excess runoff (mm)
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
     double ro_d = 0.0;
-    // just for vertical input,not exfiltration considered yet
-    double dummy = wn + R;
-     if (dummy > SAT){
-        //   allocate excess water to runoff
-        ro_d = (dummy - SAT);
-        dummy = SAT;
-        R -= ro_d;
    
-    } else if (dummy < RES){
-        // Bucket is too empty:
-        //   set soil moisture & runoff to zero
-        ro_d = 0.0;
-        dummy = RES;
-    } 
     if (sm > SAT){
         // Bucket is too full:
         // allocate excess water to runoff
+        ro_d = (sm - SAT);
         sm = SAT;
+        if( R > 0){
+            R -= ro_d; 
+           }
            
     } else if (sm < RES){
         // Bucket is too empty:
         //   set soil moisture & runoff to zero
         sm = RES;
+        ro_d = 0.0;
     } 
     // 5.5 update runoff
     double ro  = ro_d + ro_h;
     
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 6. Calculate drainage vadose sone (unsaturated) (used only to compare against field measurements at low depths)
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // double subro = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dsin(slop));
-    // sm -= subro;
-    // double q_drain = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dcos(slop));
-    // sm -=q_drain;
+   
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.6. Estimate Transmitance after recharge
@@ -1046,46 +1042,41 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.3. Update soil moisture
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    double sm = wn + R + q_in_o;
+    /// receives qin from the previous day
+    double sm = wn + q_in_o;
+    // error long winter, snowmelt
+    if (sm > SAT){
+        sm = SAT;        
+    } else if (sm < RES){
+        // Bucket is too empty:
+        sm = RES;
+    } 
 
+    // receives rechearge from the current day
+    sm += R;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.4. Calculate Dunne  - saturation excess runoff (mm)
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
     double ro_d = 0.0;
-    // just for vertical input,not exfiltration considered yet
-    double dummy = wn + R;
-     if (dummy > SAT){
-        //   allocate excess water to runoff
-        ro_d = (dummy - SAT);
-        dummy = SAT;
-        R -= ro_d;
    
-    } else if (dummy < RES){
-        // Bucket is too empty:
-        //   set soil moisture & runoff to zero
-        ro_d = 0.0;
-        dummy = RES;
-    } 
     if (sm > SAT){
         // Bucket is too full:
         // allocate excess water to runoff
+        ro_d = (sm - SAT);
         sm = SAT;
+        if( R > 0){
+            R -= ro_d; 
+           }
            
     } else if (sm < RES){
         // Bucket is too empty:
         //   set soil moisture & runoff to zero
         sm = RES;
+        ro_d = 0.0;
     } 
     // 5.5 update runoff
     double ro  = ro_d + ro_h;
-    
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 6. Calculate drainage vadose sone (unsaturated) (used only to compare against field measurements at low depths)
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // double subro = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dsin(slop));
-    // sm -= subro;
-    // double q_drain = Ksat_visc*pow((sm/SAT), (3+(2/lambda)))*24*(dcos(slop));
-    // sm -=q_drain;
+
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5.6. Estimate Transmitance after recharge
@@ -1286,7 +1277,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     }
     // Equilibrate (diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 100)
     int spin_count = 1;
-    while ((diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 9)){
+    while ((diff_sm > 1.0) && (diff_swe > 1.0) && (spin_count < 100)){
         for (int i=0; i<n; i++){
             // Get preceeding soil moisture status:
             if (i == 0){
