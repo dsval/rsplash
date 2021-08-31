@@ -74,7 +74,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		return(out)
 	}
 	# 1.1 calculate upslope area in m2, *all the rasters will be saved to the disk by default
-	if (ncell(elev)>1e7|res(elev)[1]>0.1){
+	if (ncell(elev)>1e7|(res(elev)[1]>0.1 & res(elev)[1]<1)){
 		cat("computing contributing areas and terrain features, it might take a while...","\n")
 		start.time<-Sys.time()
 		Au<-upslope_areav2(elev, type,tmpdir)
@@ -116,14 +116,60 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###########################################################################
 	# 02. Get time info from data
 	###########################################################################
+	################################################
+	##BCE dates https://github.com/RMHoek/NOAAearthquakeAnalysis/blob/master/R/as_BC_date.R
+	################################################
+	as_BC_date <- function(year, month = 1, day = 1){
+		if(year < 0) year<-(-year)
+		Y <- as.character(year)
+		M <- as.character(month)
+		D <- as.character(day)
+		fwdY <- paste(Y, "1", "1", sep = "/")
+		fwdYMD <- paste(Y, M, D, sep = "/")
+		AD0 <- lubridate::as_date("0000/1/1") ##merry xmas!
+		n_AD0 <- as.numeric(AD0)
+		n_fwdY <- as.numeric(lubridate::as_date(fwdY))
+		n_MD <- as.numeric(lubridate::as_date(fwdYMD)) -
+		as.numeric(lubridate::as_date(fwdY))
+		n_BC <- n_AD0 - (n_fwdY - n_AD0) + n_MD
+		if(n_MD==0) n_BC <- n_BC + 1
+		BC_date <- lubridate::as_date(n_BC)
+		return(BC_date)
+	}
 	
-	y<-as.numeric(unique(format(getZ(pn),'%Y')))
-	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
+	
 	ztime<-getZ(pn)
-	ztime.months<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="month")
-	ztime.days<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="day")
-	zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31))
-	time.freq<-ztime[2]-ztime[1]
+	if(is.character(ztime[1])){
+		timechar<-do.call(rbind,strsplit(ztime,'-',fixed = T))
+		y<-as.numeric(unique(timechar[,1]))
+		ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
+		ztime1<-as_BC_date(y[1], month = 1, day = 1)
+		ztime1<-as_BC_date(timechar[1,1], month = timechar[1,2], day = timechar[1,3])
+		ztime2<-as_BC_date(timechar[2,1], month = timechar[2,2], day = timechar[2,3])
+		time.freq<-ztime1-ztime2
+		ztime.months<-seq(as_BC_date(y[1], month = 1, day = 1),as_BC_date(y[length(y)], month = 12, day = 31), by="month")
+		ztime.days<-seq(as_BC_date(y[1], month = 1, day = 1),as_BC_date(y[length(y)], month = 12, day = 31), by="days")
+		zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31))
+		
+	}else if (is(ztime[1],'Date')){
+		y<-as.numeric(unique(format(getZ(pn),'%Y')))
+		ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
+		
+		ztime.months<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="month")
+		ztime.days<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="day")
+		zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31))
+		time.freq<-ztime[2]-ztime[1]
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	###########################################################################
 	# 03. Start the calculations for daily inputs
 	###########################################################################

@@ -477,7 +477,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
     double inflow = pn + 0.1*dn.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
-    double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
+    double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,WP,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
     double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
     // 5.1.5. calculate Hortonian (infiltration excess) runoff
@@ -935,7 +935,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
     double inflow = pn + 0.1*dvap.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
-    double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,RES,lambda);
+    double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,WP,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
     double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
     // 5.1.5. calculate Hortonian (infiltration excess) runoff

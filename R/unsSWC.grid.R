@@ -105,6 +105,7 @@ unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
 	w_z<-overlay(psi_m,z_uns,theta_r,theta_s,bub_press,lambda,uns_depth,fun=UnsWater,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".","swc_top",".","nc"),format="CDF",overwrite=TRUE,varname="swc", varunit="mm",longname="soil water content", xname="lon", yname="lat", zname="time")
 	#########################################################################
 	######################### 7. get effective saturation at the top ##############################
+	soil_info<-soil_hydro(sand=soil_data[[1]],clay=soil_data[[2]],OM=soil_data[[3]],fgravel =soil_data[[4]]*0 ,bd = soil_data[[5]])
 	calc_Se=function(w_z,uns_depth,theta_s){
 		theta_i_top=w_z/(uns_depth*1000)
 		Se=theta_i_top/theta_s
@@ -122,7 +123,7 @@ unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
 	# # uns_wn<-xts(uns_wn,time(wn))
 	# wtd<-(bub_press-psi_m)/1000
 	# wtd[wtd>soil_data[[6]]]<-soil_data[[6]][wtd>soil_data[[6]]]
-	return(list(w_z=w_z,wtd=wtd,Se))
+	return(list(w_z=w_z,wtd=wtd,Se=Se))
 	# merge.xts(uns_wn,wtd)
 	
 }
