@@ -169,7 +169,7 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     //
     double r_in = 86400 * sw_in;
     //error at high latitudes, ra_d=0 or sw_in = 0
-	if (isnan(sw_in)==1 || ra_d==0 || ra_d < r_in){
+	if (isnan(ra_d)==1 || r_in==0 || ra_d < r_in){
 		tau = tau_o;
 	}else{
 		tau = r_in/(ra_d);
