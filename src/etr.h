@@ -47,6 +47,7 @@ struct etr {
     double pet;     // potential evapotranspiration, mm
     double aet;     // actual evapotranspiration, mm
     double snowmelt;// snowmelt, mm
+    double sublimation;// evaporated water from snowmelt, mm
     double econ;    // water-to-energy conversion (econ), m^3/J
     double pw;      // density of water, kg/m^3
     double rn_d;    // daytime net radioation J/m^2

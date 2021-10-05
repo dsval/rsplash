@@ -79,6 +79,7 @@ class EVAP {
         double aet_d;              // daily actual ET, mm/d
         double cos_hi;             // cosine of hour angle, hi
         double snowmelt;           // daily snowmelt mm/d
+        double sublimation;        // daily sublimation mm/d
         double visc;               // viscosity Pa s
         srad d_sr;                 // daily srad struct
         etr d_etr;                 // daily etr struct

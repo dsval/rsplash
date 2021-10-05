@@ -189,8 +189,14 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	sat<-1-(bd/dp)
 	# volumetric water content at 33kPa [m3/m3]
 	fc<-(sat/bd)*(0.4760944 + (0.9402962 - 0.4760944)*clay^0.5)*exp(-1*(0.05472678*sand - 0.01* OM)/(sat/bd))
-	##errors in the empirical fitting, assume boundaries
-	fc[fc<0]<-0.1
+	##errors in the empirical fitting, switch to Saxton and Rawls (2006)
+	
+	FCinit<--0.251*sand+0.195*clay+0.011*OM+0.006*(sand*OM)-0.027*(clay*OM)+0.452*(sand*clay)+0.299
+	FC_fvol<-FCinit+(1.283*FCinit^2-0.374*FCinit-0.015)
+	fc[fc<0 | fc>sat]<-FC_fvol[fc<0 | fc>=sat]
+	##persistent errors, few pixels in siberia
+	#fc[fc<0]<-0.1
+	#fc[fc>sat]<-0.9*sat
 	# if(!is.numeric(sand)){
 	# 	fc[fc>sat]<-0.9*sat[fc>sat]
 	# }else{

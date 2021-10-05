@@ -73,6 +73,8 @@ namespace Global {
     extern const double PI(3.141592653589793);  // pi
     extern const double pir = (PI/180.0); // degrees to radians
     extern const double fluidity(35187037);// (Hillel, 1998)
+    extern const double psnow(315);        // (Fausto et al., 2018)
+    extern const double Cpsnow(2090);      // Tarboton and Luce (1996)
     // Paleoclimate variables:
     extern const double e(0.0167);        // (Berger, 1978)
     extern const double eps(23.44);       // (Berger, 1978)

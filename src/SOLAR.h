@@ -69,6 +69,7 @@ class SOLAR {
         double rnl;        // longwave radiation flux, W/m^2
         double rn_d;       // daily net radiation, J/m^2
         double rnn_d;      // daily nighttime net radiation, J/m^2
+        double ts;      // surface temperature C
         double a;      // parameters for correction radiation on slopes
         double b;      // parameters for correction radiation on slopes
         double c;      // parameters for correction radiation on slopes

@@ -248,6 +248,14 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     rnn_d += rw*ru*(hs - hn)*Global::pir;
     rnn_d -= rnl*(Global::PI - hn*Global::pir);
     rnn_d *= (86400.0/Global::PI);
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 14. Calculate mean surface temperature (C) Yang & Roderick (2019) doi:10.1002/qj.3481
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //ts = tc + 2.517*exp(2.38*tau) + 0.03466 *abs(lat) ;
+    // empirical fitting Fluxnet
+    ts = 1.0691*tc + 2.7302*tau - 0.035*abs(lat) + 2.334;
+
+
 }
 
 double SOLAR::dcos(double x){
@@ -371,6 +379,7 @@ srad SOLAR::get_vals(){
     dsr.hn = hn;        // cross-over hour angle, degrees
     dsr.rn_d = rn_d;    // daytime net radiation, J/m^2
     dsr.rnn_d = rnn_d;  // nighttime net radiation, J/m^2
+    dsr.ts = ts;        // surface temperature, J/m^2
 
     return dsr;
 }

@@ -459,12 +459,16 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     rn_d = dn.rn_d;
     snow -= dn.snowmelt;
     visc = dn.visc;
-    //4.3. energy used in melting
-    double melt_enrg = (dn.snowmelt/1000.0)*pw*Global::kfus;
+    //4.3. calc effective snowmelt (reaching the surface)
+    double snowmelt = dn.snowmelt - dn.sublimation;
+    
+    //double melt_enrg = (dn.snowmelt/1000.0)*pw*Global::kfus;
 	// 4.4. energy available after snowmelt
-    double AE = rn_d - melt_enrg;
-    double sublimation = min(dn.snowmelt,(AE*econ)*1000.0);
-    double snowmelt = dn.snowmelt - sublimation;
+    //double AE = rn_d - melt_enrg;
+    //double sublimation = min(dn.snowmelt,(AE*econ)*1000.0);
+    //double snowmelt = dn.snowmelt - sublimation;
+    // 
+    
     // ####################################################################################################################
     // 05. Water balance
     // ####################################################################################################################
@@ -475,7 +479,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
 	double int_perm = Ksat/Global::fluidity;
 	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
-    double inflow = pn + 0.1*dn.cond + snowmelt;
+    double inflow = pn + dn.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,WP,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs
@@ -917,12 +921,17 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     rn_d = dvap.rn_d;
     snow -= dvap.snowmelt;
     visc = dvap.visc;
+    //4.3. calc effective snowmelt (reaching the surface)
+    double snowmelt = dvap.snowmelt - dvap.sublimation;
     //4.3. energy used in melting
-    double melt_enrg = (dvap.snowmelt/1000.0)*pw*Global::kfus;
+    //double melt_enrg = (dvap.snowmelt/1000.0)*pw*Global::kfus;
 	// 4.4. energy available after snowmelt
-    double AE = rn_d - melt_enrg;
-    double sublimation = min(dvap.snowmelt,(AE*econ)*1000.0);
-    double snowmelt = dvap.snowmelt - sublimation;
+    //double AE = rn_d - melt_enrg;
+    //double sublimation = min(dvap.snowmelt,(AE*econ)*1000.0);
+    //double snowmelt = dvap.snowmelt - sublimation;
+    
+
+
     // ####################################################################################################################
     // 05. Water balance
     // ####################################################################################################################
@@ -933,7 +942,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
 	double int_perm = Ksat/Global::fluidity;
 	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
     // 5.1.2. calculate inflow 10% of the condensation taken, still figuring out how much
-    double inflow = pn + 0.1*dvap.cond + snowmelt;
+    double inflow = pn + dvap.cond + snowmelt;
     // 5.1.3 calculate skin moisture at 5 cm
     double surf_moist = moist_surf(depth,5.0,bub_press,wn,SAT,WP,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 6hrs

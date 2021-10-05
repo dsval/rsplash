@@ -93,6 +93,7 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     hn = d_sr.hn;
     rn_d = d_sr.rn_d;
     rnn_d = d_sr.rnn_d;
+    double ts = d_sr.ts;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 1.1. Assume water temperature 0.0 if air temperature < 0.0
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -116,9 +117,9 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     econ = s/(lv*pw*(s + 0.24*g));
     visc = calc_viscosity_h2o(tw,patm);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // 3. Calculate daily condensation (wc), mm
+    // 3. Calculate daily condensation (wc), mm assume 10% of rnn_d (Jones, 2013)
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    cn = (1.0e3)*econ*abs(rnn_d);
+    cn = (1.0e3)*econ*abs(rnn_d)*0.1;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 4. Estimate daily equilibrium evapotranspiration (eet_d), mm
@@ -200,15 +201,38 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 8. Estimate daily snowmelt, mm and energy available for sublimation assume first snow melt then evaporate
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if (tc >= 1.0) {
-		snowmelt = min(snow,(rn_d/(pw*Global::kfus*1.1))*1000.0);
+    // estimate cold content [J/m^2] Hock, (2005) doi:10.1191/0309133305pp453ra [J/kg]
+    double Qsnow = 0.0;
+    if ((ts < 0.0)){
+        Qsnow =   Global::Cpsnow * abs(ts) ;
+    }
+    // total energy required to raise the temperature and melt per kg [J/kg]
+    double Qmelt = Global::kfus + Qsnow;
+    
+    //double Qsnow = 0.0;
+    //if ((ts < 0.0) && (elv > 1500)){
+    //    Qsnow =   Global::Cpsnow * pw * (snow/1000.0) * abs(ts) ;
+    //}
+    //snowmelt = min(snow,(rn_d/(pw*(Qmelt)))*1000.0);
+    // energy available for snowmelt
+    //double AE = max(0.0,rn_d-Qsnow);
+    // calc snowmelt
+    //snowmelt = min(snow,(AE/(pw*Global::kfus))*1000.0);
+    
+    if (tc >= 3.0) {
+		snowmelt = min(snow,(rn_d/(pw*Global::kfus))*1000.0);
 	}else{
 		snowmelt=0.0;
 	}
+    
+    
+    // energy used in melting
 	double melt_enrg = (snowmelt/1000)*pw*Global::kfus;
 	// energy available after snowmelt
-    double AE = rn_d-melt_enrg;
-    double sublimation = min(snowmelt,(AE*econ)*1000.0);
+    double AE = rn_d - melt_enrg;
+    //calc evaporation from melted water (sublimation)
+    sublimation = min(snowmelt,(AE*econ)*1000.0);
+    // energy used in melting + evaporation
     melt_enrg += ((sublimation/1000.0)/econ);
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -488,6 +512,7 @@ etr EVAP::get_vals(){
     d_etr.pet = pet_d;
     d_etr.aet = aet_d;
     d_etr.snowmelt = snowmelt;
+    d_etr.sublimation = sublimation;
     d_etr.econ = econ;
     d_etr.pw = pw;
     d_etr.rn_d = rn_d;

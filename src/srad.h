@@ -49,5 +49,6 @@ struct srad {
     double hn;      // cross-over hour angle, degrees
     double rn_d;    // daytime net radiation, J/m^2
     double rnn_d;   // nighttime net radiation, J/m^2
+    double ts;     // surface temperature
 };
 #endif

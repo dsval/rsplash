@@ -65,6 +65,8 @@ namespace Global {
     extern const double Wm;       // soil moisture capacity, mm
     extern const double PI;       // pi
     extern const double pir;      // degrees to radians
+    extern const double psnow;    // snow density kg/m^3
+    extern const double Cpsnow;   // snow heat capacity J/kg/K
     extern const double fluidity; // fluidity, mm^2 (density*gravity)/viscosity
     // Paleoclimate variables:
     extern const double e;        // eccentricity
