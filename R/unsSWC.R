@@ -11,7 +11,7 @@
 #' @examples
 #' unSWC()
 
-unSWC<-function(soil_data,uns_depth,wn,units='mm'){
+unSWC<-function(soil_data,uns_depth,wn){
 	# test
 	# soil_data=soil_sm[[1]];uns_depth=sites_sm[1]*-1;wn=sm_sim$`AR-SLu`[,1]
 	# end testing
@@ -43,20 +43,20 @@ unSWC<-function(soil_data,uns_depth,wn,units='mm'){
 		#4. 
 		sat_swc<-ifelse(wtd<=uns_depth,theta_s*(uns_depth-wtd)*1000,0)
 		
-		swc_tot<-w_uns+sat_swc
+		swc_tot<-(w_uns+sat_swc)
 		# w_uns[psi_m>=bub_press]<-theta_s*z_uns
 		# return(swc_tot)
 		return(list(wn_z=swc_tot,wtd=wtd))
 		
 	}
+	### get volumetric water content without stoniness
+	soil_info<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =0.0 ,bd = soil_data[5])
+	wn<-wn*(100+soil_data[4])/100
 	
-	# wn<-simdf[,1]
-	
-	soil_info<-soil_hydro(sand=soil_data[1],clay=soil_data[2],OM=soil_data[3],fgravel =soil_data[4] ,bd = soil_data[5])
-	
+	#########################################################################################
 	theta_s<-as.numeric(soil_info$SAT)
-	#theta_r<-as.numeric(soil_info$WP)/2
-	theta_r<-0.0
+	theta_r<-as.numeric(soil_info$RES)
+	#theta_r<-0.0
 	lambda<-as.numeric(1/soil_info$B)
 	bub_press<-as.numeric(soil_info$bubbling_p)
 	theta_i<-wn/(soil_data[6]*1000)
@@ -68,14 +68,20 @@ unSWC<-function(soil_data,uns_depth,wn,units='mm'){
 	#psi_m<-soil_info$A*(theta_i)^(-1*soil_info$B)
 	#psi_m<-as.numeric(psi_m)*-101.97162129779
 	uns_wn<-UnsWater(psi_m,uns_depth,theta_r,theta_s,bub_press,lambda,soil_data[6])
-	uns_wn<-mapply(FUN=xts,uns_wn,MoreArgs = list(order.by=time(wn)),SIMPLIFY = F)
-	uns_theta<-uns_wn[[1]]/(uns_depth*1000)
-		
-	if(units=='mm'){
-		result<-uns_wn
-	}else{
-		result<-merge.xts(uns_theta,uns_wn[[2]])
+	###error at very low swc, super high potential, swc getsclose to 0
+	uns_wn$wn_z[uns_wn$wn_z<=0]<-theta_r*(uns_depth*1000)
+	
+	if(is.xts(wn)){
+		uns_wn<-mapply(FUN=xts,uns_wn,MoreArgs = list(order.by=time(wn)),SIMPLIFY = F)
 	}
+	
+	uns_theta<-(uns_wn[[1]]/(uns_depth*1000))
+	#### correct swc for stoniness at the top
+	uns_wn[[1]]<-uns_wn[[1]]*(1-(soil_data[4]/100))
+		
+	result<-uns_wn
+	result$theta_i<-uns_theta
+		
 	
 	result
 	

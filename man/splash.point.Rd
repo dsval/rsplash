@@ -4,8 +4,18 @@
 \alias{splash.point}
 \title{Simple process-led algorithms for simulating habitats (SPLASH v.2.0)}
 \usage{
-splash.point(sw_in, tc, pn, lat, elev, slop = 0, asp, soil_data,
-  Au = 0, resolution = 250)
+splash.point(
+  sw_in,
+  tc,
+  pn,
+  lat,
+  elev,
+  slop = 0,
+  asp = 0,
+  soil_data,
+  Au = 0,
+  resolution = 250
+)
 }
 \arguments{
 \item{sw_in}{Incoming shortwave solar radiation (W m-2), timeseries object of monthly or daily averages.}
@@ -25,7 +35,7 @@ splash.point(sw_in, tc, pn, lat, elev, slop = 0, asp, soil_data,
 \value{
 a time series matrix including:
 \itemize{
-        \item \eqn{W_n}: Soil water content within the first 2m of depth (mm).
+        \item \eqn{wn}: Soil water content within the first 2m of depth (mm).
         \item \eqn{ro}: Runoff (mm d-1).
         \item \eqn{pet}: Potential evapotranspiration (mm d-1).
         \item \eqn{aet}: Actual evapotranspiration (mm d-1).

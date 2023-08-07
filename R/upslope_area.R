@@ -83,6 +83,15 @@ upslope_areav2<-function(dem,type,tmpd){
 	#2. compute contributing area
 	ups_ncell<-raster("dem_a_ac.tif")
 	area_p_cell<-area(ups_ncell)
+	
+	###fix coastal regions with flat slopes
+	fix_coast<-function(elev,ups_ncell){
+		ups_ncell<-ifelse(!is.na(elev) & is.na(ups_ncell), 1.0, ups_ncell)
+		ups_ncell
+	}
+	
+	ups_ncell<-overlay(dem,ups_ncell,fun=fix_coast,filename="ups_ncell.grd",overwrite=TRUE)
+	### calculate upslope area
 	ups_area<-overlay(ups_ncell, area_p_cell, fun=function(x,y){(x*y*1e6)},filename="areacatch.grd",overwrite=TRUE)
 	#3. calculate flow direction and n cells draining in and out
 	flowdir<-raster("dem_p.tif")

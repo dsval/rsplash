@@ -6,14 +6,20 @@
 using namespace Rcpp;
 
 
+RcppExport SEXP _rcpp_module_boot_NumEx();
 RcppExport SEXP _rcpp_module_boot_splash_module();
+RcppExport SEXP _rcpp_module_boot_yada();
+RcppExport SEXP _rcpp_module_boot_stdVector();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_rcpp_module_boot_NumEx", (DL_FUNC) &_rcpp_module_boot_NumEx, 0},
     {"_rcpp_module_boot_splash_module", (DL_FUNC) &_rcpp_module_boot_splash_module, 0},
+    {"_rcpp_module_boot_yada", (DL_FUNC) &_rcpp_module_boot_yada, 0},
+    {"_rcpp_module_boot_stdVector", (DL_FUNC) &_rcpp_module_boot_stdVector, 0},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_rsplash(DllInfo *dll) {
+RcppExport void R_init_rsplashtest(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

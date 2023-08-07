@@ -93,6 +93,8 @@ class SPLASH {
         Rcpp::List spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, double slop, double asp, vector <double> &snowfall, vector <double> &soil_info);        
         Rcpp::List run_one_year(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, vector <double> &wn_vec, double slop, double asp, 
                                 vector <double> &snow, vector <double> &snowfall, vector <double> &soil_info, vector <double> &qin_vec,vector <double> &td_vec,vector <double> &nds);
+        Rcpp::List run_all(vector<int> &doys, vector<int> &yrs, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, double wn_last, 
+                            double slop, double asp, double snow_last, vector <double> &snowfall, vector <double> &soil_info, double qin_last, double td_last, double nds_last);
         double dcos(double x);
         double dsin(double x);
         double dtan(double x);

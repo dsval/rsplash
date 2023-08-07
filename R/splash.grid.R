@@ -25,7 +25,7 @@
 #' @export
 #' @examples
 #' splash.grid(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
-splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(rasterTmpFile()),sim.control=list(output.mode="monthly",inmem=FALSE)){
+splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(rasterTmpFile()),sim.control=list(monthly_out=TRUE,inmem=FALSE)){
 	###########################################################################
 	# 00. Check if parallel computation is required by the user and if the dimensions of the raster objects match
 	###########################################################################
@@ -59,10 +59,10 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		# rsqv<-function(x,y){summary(lm(y~x,na.action=))$r.squared}
 		for (i in 1:bs$n) {
 			# i=178
-			# xmat <- getValues(x, row=bs$row[i], nrows=bs$nrows[i] )
-			# ymat <- getValues(y, row=bs$row[i], nrows=bs$nrows[i] )
+			# xmat <- raster::getValues(x, row=bs$row[i], nrows=bs$nrows[i] )
+			# ymat <- raster::getValues(y, row=bs$row[i], nrows=bs$nrows[i] )
 			xncells<-cellFromRow(x,bs$row[i]:(bs$row[i]+ bs$nrows[i]-1))
-			#xmat<-getValues(x,bs$row[i], bs$nrows[i])
+			#xmat<-raster::getValues(x,bs$row[i], bs$nrows[i])
 			xydata<-xyFromCell(x, xncells)
 			
 			# write the chunk of results, bs$row[i] is putting the results in the correct rows
@@ -80,8 +80,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		Au<-upslope_areav2(elev, type,tmpdir)
 		# 1.2.2 get latitude from the high res dem
 		lat<-getlatitude(elev, filename='lat.grd')
-		system("gdaldem slope -s 111120 rawdem.tif slope_deg.tif")
-		system("gdaldem aspect -zero_for_flat rawdem.tif aspect_deg.tif")
+		system("gdaldem slope -s 111120 -compute_edges rawdem.tif slope_deg.tif")
+		system("gdaldem aspect -zero_for_flat -compute_edges rawdem.tif aspect_deg.tif")
 		terraines<-raster::stack(list(slope='slope_deg.tif',aspect='aspect_deg.tif'))
 		# get resolution in m2
 		resolution<-area(elev,filename='area.grd',overwrite=T)
@@ -103,6 +103,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		lat[!is.na(lat)]<-lat.data[,2]
 		rm(lat.data)
 		terraines<-terrain(elev, opt=c('slope', 'aspect'), unit='degrees')
+		##fix slopes NA as flats
+		terraines[is.na(terraines) & !is.na(elev)]<-0
 		cat("done!","\n")
 		gc()
 	}
@@ -116,6 +118,8 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###########################################################################
 	# 02. Get time info from data
 	###########################################################################
+	### ztime: the time index of the inputs
+	### ztime_out: the time index of the outputs
 	################################################
 	##BCE dates https://github.com/RMHoek/NOAAearthquakeAnalysis/blob/master/R/as_BC_date.R
 	################################################
@@ -139,6 +143,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	
 	
 	ztime<-getZ(pn)
+	
 	if(is.character(ztime[1])){
 		timechar<-do.call(rbind,strsplit(ztime,'-',fixed = T))
 		y<-as.numeric(unique(timechar[,1]))
@@ -152,7 +157,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31))
 		
 	}else if (is(ztime[1],'Date')){
-		y<-as.numeric(unique(format(getZ(pn),'%Y')))
+		y<-as.numeric(unique(format(ztime,'%Y')))
 		ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
 		
 		ztime.months<-seq(as.Date(paste(y[1],1,sep="-"),format="%Y-%j"),as.Date(paste(y[length(y)],ny[length(y)],sep="-"),format="%Y-%j"), by="month")
@@ -160,595 +165,146 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31))
 		time.freq<-ztime[2]-ztime[1]
 	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	###########################################################################
-	# 03. Start the calculations for daily inputs
+	# 03. create empty rasters
 	###########################################################################
-	if (abs(as.numeric(time.freq, units = "days"))<2){		
-		
-		if (length(y)==1){
-			###########################################################################
-			# 3.1. Equilibrate
-			###########################################################################
-			cat("reaching steady state","\n")
-			# beginCluster(sim.control$ncores,type=type)
-			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1]),"\n")
-			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq,eq$snwage,sim.control$inmem,outdir=tmpdir)
-			result.all$tdrain<-NULL
-			result.all$snwage<-NULL
-			# endCluster()
-			gc()
-		}
-		else if(length(y)>1){
-			
-			end<-cumsum(ny)
-			start<-end+1
-			result<-list()
-			# beginCluster(sim.control$ncores, type=type)
-			cat("reaching steady state","\n")
-			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1]),"\n")
-			result[[1]]<-run_one_year.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]], eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],
-				resolution,Au,eq$bfloweq,eq$tdraineq,eq$snwage,sim.control$inmem,outdir=tmpdir)
-			rm(eq)
-			gc()
-			###########################################################################
-			# 3.2. loop through years
-			###########################################################################
-			# correct for leap years	inside c++ functions
-			pb <- txtProgressBar(min=1,max = length(y), 3)
-			for (i in 2:length(y)){
-				cat(paste("solving","year",y[i]),"\n")
-				
-				stidx<-i-1
-				result[[i]]<-run_one_year.grid(sw_in[[start[stidx]:end[i]]], tc[[start[stidx]:end[i]]], pn[[start[stidx]:end[i]]],result[[stidx]]$wn,
-					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$q_in,result[[stidx]]$tdrain, result[[stidx]]$snwage,sim.control$inmem,outdir=tmpdir)
-				setTxtProgressBar(pb,i)
-				cat("...","\n")				
-			}
-			close(pb)
-			# endCluster()
-			
-			gc()
-			
-		}
-		
-		
-	}
+	### define the number of layers
 	
-	###########################################################################
-	# 03. Start the calculations if the inputs are monthly
-	###########################################################################
-	
-	else if (abs(as.numeric(time.freq, units = "days"))>20){		
-		
-		if (length(y)==1){
-			cat("reaching steady state","\n")
-			# beginCluster(sim.control$ncores, type=type)
-			eq<-spinup.grid(sw_in,tc,pn,elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1]),"\n")
-			result.all<-run_one_year.grid(sw_in,tc,pn,eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],resolution,Au,eq$bfloweq,eq$tdraineq, eq$snwage,sim.control$inmem,outdir=tmpdir)
-			result.all$tdrain<-NULL
-			result.all$snwage<-NULL
-			# endCluster()
-		}
-		else if(length(y)>1){
-			nm <- rep(12,length(y))
-			end<-cumsum(nm)
-			start<-end-11
-			result<-list()
-			# beginCluster(sim.control$ncores, type=type)
-			cat("reaching steady state","\n")
-			eq<-spinup.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]],elev,lat,terraines,soil,y[1],resolution,Au,sim.control$inmem,outdir=tmpdir)
-			cat(paste("solving","year",y[1]),"\n")
-			result[[1]]<-run_one_year.grid(sw_in[[1:end[1]]], tc[[1:end[1]]], pn[[1:end[1]]], eq$wneq,eq$snoweq,elev,lat,terraines,soil,y[1],
-				resolution,Au,eq$bfloweq,eq$tdraineq,eq$snwage,sim.control$inmem,outdir=tmpdir)
-			# endCluster()
-			gc()
-			# beginCluster(sim.control$ncores)
-			###########################################################################
-			# 3.2. loop through years
-			###########################################################################
-			# correct for leap years	inside c++ functions
-			pb <- txtProgressBar(min=1,max = length(y),style = 3)
-			
-			for (i in 2:length(y)){
-				cat(paste("solving","year",y[i]),"\n")
-				
-				stidx<-i-1
-				
-				result[[i]]<-run_one_year.grid(sw_in[[start[i]:end[i]]], tc[[start[i]:end[i]]], pn[[start[i]:end[i]]],result[[stidx]]$wn,
-					result[[stidx]]$snow,elev,lat,terraines,soil,y[i],resolution,Au,result[[stidx]]$q_in,result[[stidx]]$tdrain, result[[stidx]]$snwage,sim.control$inmem,outdir=tmpdir)
-				
-				setTxtProgressBar(pb,i)
-				cat("...","\n")
-				
-			}
-			close(pb)
-			
-			
-			gc()
-		}
-		
-	}		
-	
-	###########################################################################
-	# 4. Building the raster stacks
-	###########################################################################
-	if(length(y)>1){
-		flush.console();
-		cat("building the grids","\n")
-		
-		result.all<-list()
-		# memory leak???	
-		result.all$wn<-result[[1]]$wn
-		result.all$wn@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$wn)}))
-		result.all$ro<-result[[1]]$ro
-		result.all$ro@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$ro)}))
-		result.all$pet<-result[[1]]$pet
-		result.all$pet@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$pet)}))
-		result.all$aet<-result[[1]]$aet
-		result.all$aet@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$aet)}))
-		result.all$snow<-result[[1]]$snow
-		result.all$snow@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$snow)}))
-		# result.all$cond<-result[[1]]$cond
-		# result.all$cond@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$cond)}))
-		result.all$bflow<-result[[1]]$bflow
-		result.all$bflow@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$bflow)}))
-		# result.all$tdrain<-result[[1]]$tdrain
-		# result.all$tdrain@layers<-purrr::flatten(lapply(result, function(x) {as.list(x$tdrain)}))
-		
-		rm(result)
-		gc()
-	}
-	###########################################################################
-	# 5. setting the time and saving to the disk
-	###########################################################################
-	settime<-function(x){
-		x<-raster::setZ(x,ztime.days)
-	}
-	
-	result.all<-lapply(result.all,settime)
-	
-	if (sim.control$output.mode=="monthly"){
-		cat("aggregating to monthly","\n")
-		###########################################################################
-		# 5. Define function to aggregate in parallel
-		###########################################################################
-		aggregate_par<-function(x,func='mean',ind.months=ztime.months,inmem=FALSE,varnam='wn',outdir=getwd()){
-			###############################################################################################
-			# 00. create array for results, fluxes: mm/day, storages (wn, snow): mm
-			###############################################################################################
-			y<-as.numeric(unique(format(ind.months,'%Y')))
-			
-			gc()
-			nm <-length(ind.months)
-			# save the empty array
-			
-			out<-brick(x[[1]], values=FALSE, nl=nm, filename=paste0(outdir,"/",y[1],"_",y[length(y)],".",varnam,".","nc"),format="CDF",overwrite=TRUE,
-				varnam= varnam, xname="lon", yname="lat", zname="time")
-				
-			out<-setZ(out,ind.months)
-			indmonth<-format(getZ(x),'%Y-%m')
-			setwd(outdir)
-			###############################################################################################
-			# 01. set the clusters for parallel computing
-			###############################################################################################	
-			cl <- getCluster()
-			on.exit( returnCluster() )
-			nodes <- length(cl)
-			bs <- blockSize(x, minblocks=nodes*2)
-			parallel:::clusterExport(cl, c('x','func','indmonth','bs'),envir=environment()) 
-			pb <- pbCreate(bs$n)
-			pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 1)
-			###############################################################################################
-			# 02. create the functions to send to the workers, split the data in chunks
-			###############################################################################################	
-			clFun <- function(i) {
-				
-				x_block<-getValues(x,bs$row[i], bs$nrows[i])
-				# do calculations
-				if(func=='mean'){
-					result<-t(sweep(rowsum(t(x_block),indmonth,na.rm = FALSE), 1, table(indmonth), "/") )
-				}else{
-					result<-t(rowsum(t(x_block),indmonth,na.rm = FALSE))
-				}
-				
-				return(result)
-			}
-			###############################################################################################
-			# 03. send tasks to the nodes
-			###############################################################################################
-			for (i in 1:nodes) {
-				parallel:::sendCall(cl[[i]], clFun, i, tag=i)
-			}
-			###############################################################################################
-			# 04. write to the disk on the go, or save to the ram
-			###############################################################################################
-			if(varnam=='wn'){
-				longname='monthly soil moisture'
-			}else if(varnam=='ro'){
-				longname='monthly runoff'
-			}else if(varnam=='pet'){
-				longname='monthly potential evapotranspiration'
-			}else if(varnam=='aet'){
-				longname='monthly actual evapotranspiration'
-			}else if(varnam=='snow'){
-				longname='monthly snow water equivalent'
-			}else if(varnam=='cond'){
-				longname='monthly condensation'
-			}else if(varnam=='bflow'){
-				longname='monthly baseflow'
-			}else if(varnam=='tdrain'){
-				longname='days to drain'
-			}
-			if(!inmem){
-				out<-writeStart(out,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".",varnam,".","nc"),format="CDF",overwrite=TRUE,varname=varnam, varunit="mm",	longname=longname, xname="lon", yname="lat", zname="time")
-				
-				
-			}else {
-				matout <- matrix(ncol=nlayers(out), nrow=ncell(out))
-				endind<-cumsum(bs$nrows*out@ncols)
-				startind<-c(1,endind+1)    
-			}
-			###############################################################################################
-			# 05. receive results from the nodes
-			###############################################################################################	
-			for (i in 1:bs$n) {
-				
-				d <- parallel:::recvOneData(cl)
-				# error?
-				if (! d$value$success) {
-					stop('cluster error:',"\n",d$value$value)
-				}
-				# which block is this?
-				b <- d$value$tag
-				# cat('received block: ',b,'\n'); flush.console();
-				if (!inmem) {
-					out <- writeValues(out,d$value$value, bs$row[b])
-					
-				} else {
-					
-					matout[startind[b]:endind[b],] <- d$value$value
-				}
-				
-				# need to send more data?
-				ni <- nodes + i
-				if (ni <= bs$n) {
-					parallel:::sendCall(cl[[d$node]], clFun, ni, tag=ni)
-				}
-				setTxtProgressBar(pb,i)
-			}
-			###############################################################################################
-			# 06. close connection with the files, or assign valueas to the raster objects
-			###############################################################################################
-			
-			if (!inmem) {
-				out <- writeStop(out)
-				
-			} else {
-				
-				out<-setValues(out,matout)
-				
-			}
-			close(pb)
-			gc()
-			return(out)
-			
-		}
-		###############################################################################################
-		# 06. Do the aggregations one by one, using lapply causes a weird memory leak
-		###############################################################################################
-		
-		result.all$wn<-aggregate_par(result.all$wn,func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='wn',outdir=outdir)
-		result.all$ro<-aggregate_par(result.all$ro,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='ro',outdir=outdir)
-		result.all$pet<-aggregate_par(result.all$pet,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='pet',outdir=outdir)
-		gc()
-		result.all$aet<-aggregate_par(result.all$aet,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='aet',outdir=outdir)
-		result.all$snow<-aggregate_par(result.all$snow,func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='snow',outdir=outdir)
-		# result.all[[6]]<-aggregate_par(result.all[[6]],func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='cond',outdir=outdir)
-		result.all$bflow<-aggregate_par(result.all$bflow,func='sum',ind.months=ztime.months,inmem=sim.control$inmem,varnam='bflow',outdir=outdir)
-		# result.all[[8]]<-aggregate_par(result.all[[8]],func='mean',ind.months=ztime.months,inmem=sim.control$inmem,varnam='tdrain',outdir=outdir)
-		
-		endCluster()
-		
-	}else if(sim.control$output.mode!="monthly" & sim.control$inmem!=TRUE){
-		endCluster()
-		gc()
-		cat("writing to disk")
-		result.all$wn<-writeRaster(result.all$wn,paste0(outdir,"/",y[1],"_",y[length(y)],".","wn",".","nc"),format="CDF",overwrite=TRUE,varname="wn", varunit="mm",longname="daily soil moisture", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		result.all$ro<-writeRaster(result.all$ro,paste0(outdir,"/",y[1],"_",y[length(y)],".","ro",".","nc"),format="CDF",overwrite=TRUE,
-			varname="ro", varunit="mm/day", longname="daily runoff", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		result.all$pet<-writeRaster(result.all$pet,paste0(outdir,"/",y[1],"_",y[length(y)],".","pet",".","nc"),format="CDF",overwrite=TRUE,varname="pet", varunit="mm/day", longname="daily potential ET", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		result.all$aet<-writeRaster(result.all$aet,paste0(outdir,"/",y[1],"_",y[length(y)],".","aet",".","nc"),format="CDF",overwrite=TRUE,varname="aet", varunit="mm/day",longname="daily actual ET", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		result.all$snow<-writeRaster(result.all$snow,paste0(outdir,"/",y[1],"_",y[length(y)],".","swe",".","nc"),format="CDF",overwrite=TRUE,
-			varname="swe", varunit="mm",longname="daily snow water equivalent", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		# result.all$cond<-writeRaster(result.all$cond,paste0(outdir,"/",y[1],"_",y[length(y)],".","cond",".","nc"),format="CDF",overwrite=TRUE,varname="cond", 
-		# 	varunit="mm/day", longname="daily condensation water", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		result.all$bflow<-writeRaster(result.all$bflow,paste0(outdir,"/",y[1],"_",y[length(y)],".","bflow",".","nc"),format="CDF",overwrite=TRUE,varname="bflow", 
-			varunit="mm/day", longname="daily baseflow", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		# result.all$tdrain<-writeRaster(result.all$tdrain,paste0(outdir,"/",y[1],"_",y[length(y)],".","tdrain",".","nc"),format="CDF",overwrite=TRUE,varname="tdrain", 
-		# 	varunit="day", longname="days to drain", xname="lon", yname="lat", zname="time", zunit=paste("days","since",paste0(y[1]-1,"-",12,"-",31)))
-		
-	}
-	result.all$q_in<-NULL
-	result.all$snwage<-NULL
-	gc()	
-	
-	return(result.all)
-	
-}
-
-spinup.grid<-function(sw_in, tc, pn, elev,lat, terraines,soil, y, resolution,  Au ,inmem=FALSE,outdir=getwd()){
-	###############################################################################################
-	# 00. create array for equilibrium soil moisture wneq and snow
-	###############################################################################################
-	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
-	setwd(outdir)
-	if(!inmem){
-		# actual soil moisture
-		wneq<-brick(elev, values=FALSE, nl=ny,filename="wneq.grd",overwrite=TRUE,overwrite=TRUE) 
-		snoweq<-brick(elev, values=FALSE, nl=ny,filename="snoweq.grd",overwrite=TRUE,overwrite=TRUE) 
-		bfloweq<-brick(elev, values=FALSE, nl=ny,filename="bfloweq.grd",overwrite=TRUE,overwrite=TRUE) 
-		tdraineq<-brick(elev, values=FALSE, nl=ny,filename="tdraineq.grd",overwrite=TRUE,overwrite=TRUE) 
-		#ro<-brick(elev, values=FALSE, nl=ny,filename="roeq.grd",overwrite=TRUE,overwrite=TRUE) 
-		snwage<-brick(elev, values=FALSE, nl=ny,filename="snwage.grd",overwrite=TRUE,overwrite=TRUE) 
+	if(sim.control$monthly_out){
+		time_text<-'monthly'
+		nl=length(ztime.months)
+		ztime_out <- ztime.months
 	}else{
-		
-		wneq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		extent(wneq)<-extent(elev)
-		snoweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		extent(snoweq)<-extent(elev)
-		bfloweq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		extent(bfloweq)<-extent(elev)
-		tdraineq<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		extent(tdraineq)<-extent(elev)
-		# # runoff
-		# ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		# extent(ro)<-extent(elev)
-		# snow age
-		snwage<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		extent(snwage)<-extent(elev)
-		#send the inputs to the RAM
-		sw_in<-readAll(sw_in)
-		tc<-readAll(tc)
-		pn<-readAll(pn)
-		elev<-readAll(elev)
-		lat<-readAll(lat)
-		terraines<-readAll(terraines)
-		soil<-readAll(soil)
-		Au<-readAll(Au)	
+		time_text<-'daily'
+		nl=length(ztime.days)
+		ztime_out <- ztime.days
 	}
-	###############################################################################################
-	# 01. set the clusters for parallel computing
-	###############################################################################################	
-	cl <- getCluster()
-	on.exit( returnCluster() )
-	nodes <- length(cl)
-	message('Using cluster with ', nodes, ' nodes')
-	bs <- blockSize(sw_in, minblocks=nodes*2)
-	parallel:::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','y','resolution','Au','bs'),envir=environment()) 
-	pb <- pbCreate(bs$n)
-	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 3)
-	###############################################################################################
-	# 02. create the functions to send to the workers, split the data in chunks
-	###############################################################################################	
-	clFun <- function(i) {
-		swrow<- split(getValues(sw_in, bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		tcrow<-split(getValues(tc,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		pnrow<-split(getValues(pn,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		latrow<-getValues(lat,bs$row[i], bs$nrows[i])
-		elevrow<-getValues(elev,bs$row[i], bs$nrows[i])
-		sloprow<-getValues(terraines[[1]],bs$row[i], bs$nrows[i])
-		asprow<-getValues(terraines[[2]],bs$row[i], bs$nrows[i])
-		soilrow<-split(getValues(soil,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		Aurow<-split(getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		resrow<-getValues(resolution,bs$row[i], bs$nrows[i])
-		# do calculations
-		wneqmat<-mapply(rspin_up,latrow,elevrow,swrow,tcrow,pnrow,sloprow,asprow,y,soilrow,Aurow,resrow)
-		return(wneqmat)
-	}
-	###############################################################################################
-	# 03. send tasks to the nodes
-	###############################################################################################
-	for (i in 1:nodes) {
-		parallel:::sendCall(cl[[i]], clFun, i, tag=i)
-	}
-	###############################################################################################
-	# 04. write to the disk on the go, or save to the ram
-	###############################################################################################
-	if(!inmem){
-		wneq<-writeStart(wneq,filename="wneq.grd",overwrite=TRUE)
-		snoweq<-writeStart(snoweq,filename="snoweq.grd",overwrite=TRUE)
-		bfloweq<-writeStart(bfloweq,filename="bfloweq.grd",overwrite=TRUE)
-		tdraineq<-writeStart(tdraineq,filename="tdraineq.grd",overwrite=TRUE)
-		#ro<-writeStart(ro,filename="roeq.grd",overwrite=TRUE)
-		snwage<-writeStart(snwage,filename="snwage.grd",overwrite=TRUE)
-	}else {
-		matwneq <- matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
-		matswoeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
-		matbfeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
-		mattdeq<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
-		matsnwage<-matrix(ncol=nlayers(wneq), nrow=ncell(wneq))
-		endind<-cumsum(bs$nrows*snoweq@ncols)
-		startind<-c(1,endind+1)    
-	}
-	###############################################################################################
-	# 05. receive results from the nodes
-	###############################################################################################	
-	for (i in 1:bs$n) {
-		
-		d <- parallel:::recvOneData(cl)
-		# error?
-		if (! d$value$success) {
-			
-			stop('cluster error:',"\n",d$value$value)
-		}
-		# which block is this?
-		b <- d$value$tag
-		# cat('received block: ',b,'\n'); flush.console();
-		if (!inmem) {
-			wneq <- writeValues(wneq,do.call(rbind,d$value$value[1,]), bs$row[b])
-			snoweq <- writeValues(snoweq, do.call(rbind,d$value$value[2,]), bs$row[b])
-			bfloweq <- writeValues(bfloweq, do.call(rbind,d$value$value[3,]), bs$row[b])
-			tdraineq <- writeValues(tdraineq, do.call(rbind,d$value$value[4,]), bs$row[b])
-			#ro <- writeValues(ro, do.call(rbind,d$value$value[5,]), bs$row[b])
-			snwage <- writeValues(snwage, do.call(rbind,d$value$value[6,]), bs$row[b])
-			
-		} else {
-			                
-			matwneq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[1,])
-			matswoeq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[2,])
-			matbfeq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[3,])
-			mattdeq[startind[b]:endind[b],] <- do.call(rbind,d$value$value[4,])
-			matsnwage[startind[b]:endind[b],] <- do.call(rbind,d$value$value[6,])
-		}
-				
-		# need to send more data?
-		ni <- nodes + i
-		if (ni <= bs$n) {
-			parallel:::sendCall(cl[[d$node]], clFun, ni, tag=ni)
-		}
-		setTxtProgressBar(pb,i)
-	}
-	###############################################################################################
-	# 06. close connection with the files, or assign valueas to the raster objects
-	###############################################################################################
 	
-	if (!inmem) {
-		wneq <- writeStop(wneq)
-		snoweq <- writeStop(snoweq)
-		bfloweq <- writeStop(bfloweq)
-		tdraineq <- writeStop(tdraineq)
-		snwage <- writeStop(snwage)
-		#ro <- writeStop(ro)
-	} else {
-		wneq<-setValues(wneq,matwneq)
-		snoweq<-setValues(snoweq,matswoeq)
-		bfloweq<-setValues(bfloweq,matbfeq)
-		tdraineq<-setValues(tdraineq,mattdeq)
-		snwage<-setValues(snwage,matsnwage)
-	}
-	close(pb)
-	gc()
-	return(list(wneq=wneq,snoweq=snoweq,bfloweq=bfloweq,tdraineq=tdraineq,snwage=snwage))
-}
-
-
-run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, resolution,  Au,bf_in, tdin, snwage_in,inmem=FALSE,outdir=getwd()){
-	###############################################################################################
-	# 00. create array for results, fluxes: mm/day, storages (wn, snow): mm 
-	# *make bricks, raster stacks are not working, result should stacks, otherwise merging everything wont work
-	###############################################################################################
+	
 	setwd(outdir)
-	ny <- julian_day(y + 1, 1, 1) - julian_day(y, 1, 1)
-	if(!inmem){
+		
+	if(!sim.control$inmem){
+		
+		
 		# actual soil moisture
-		sm<-brick(elev, values=FALSE, nl=ny,filename=paste0("sm","_",y,".grd"),overwrite=TRUE) 
-		# runoff
-		ro<-brick(elev, values=FALSE, nl=ny,filename=paste0("ro","_",y,".grd"),overwrite=TRUE) 
-		# Potential evapotranspiration
-		pet<-brick(elev, values=FALSE, nl=ny,filename=paste0("pet","_",y,".grd"),overwrite=TRUE) 
-		# Actual evapotranspiration
-		aet<-brick(elev, values=FALSE, nl=ny,filename=paste0("aet","_",y,".grd"),overwrite=TRUE) 
-		# Snow water equivalent
-		swe<-brick(elev, values=FALSE, nl=ny,filename=paste0("swe","_",y,".grd"),overwrite=TRUE) 
-		# Condensation
-		# cond<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		# extent(cond)<-extent(elev)
-		# baseflow
-		bflow<-brick(elev, values=FALSE, nl=ny,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
-		# tdrain
-		tdrain<-brick(elev, values=FALSE, nl=ny,filename=paste0("tdrain","_",y,".grd"),overwrite=TRUE)
-		# q_in
-		q_in<-brick(elev, values=FALSE, nl=ny,filename=paste0("q_in","_",y,".grd"),overwrite=TRUE)
-		# snow age
-		snwage<-brick(elev, values=FALSE, nl=ny,filename=paste0("snwage","_",y,".grd"),overwrite=TRUE)
+		sm<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"swc",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="wm", varunit="mm",	longname='Soil water content', xname="lon", yname="lat", zname="time")
+		sm<-setZ(sm,ztime_out)
+		
+		ro<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"ro",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="ro", varunit="mm",	longname='surface runoff', xname="lon", yname="lat", zname="time")
+		ro<-setZ(ro,ztime_out)
+		
+		pet<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"pet",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="pet", varunit="mm",	longname='potential evapotranspiration', xname="lon", yname="lat", zname="time")
+		pet<-setZ(pet,ztime_out)
+		
+		aet<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"aet",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="aet", varunit="mm",	longname='actual evapotranspiration', xname="lon", yname="lat", zname="time")
+		aet<-setZ(aet,ztime_out)
+		
+		
+		swe<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"swe",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="swe", varunit="mm",	longname='snow water equivalent', xname="lon", yname="lat", zname="time")
+		swe<-setZ(swe,ztime_out)
+		
+		cond<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"cond",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="cond", varunit="mm",	longname='condensation', xname="lon", yname="lat", zname="time")
+		cond<-setZ(cond,ztime_out)
+		
+		bflow<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"bflow",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="bflow", varunit="mm",	longname='drainage', xname="lon", yname="lat", zname="time")
+		bflow<-setZ(bflow,ztime_out)
+		
+		netrad<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"netrad",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="netrad", varunit="MJ",	longname='daytime net radiation', xname="lon", yname="lat", zname="time")
+		netrad<-setZ(netrad,ztime_out)
+		
+		sm_lim<-brick(elev, values=FALSE, nl=nl,filename=paste0(outdir,"/",'SPLASH_v2.0_',"sm_lim",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="sm_lim", varunit="mm",	longname='fraction of available water content', xname="lon", yname="lat", zname="time")
+		sm_lim<-setZ(sm_lim,ztime_out)
+		
+		
+		
 	}else{
 		# actual soil moisture
-		sm<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		sm<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
 		extent(sm)<-extent(elev)
 		# runoff
-		ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		ro<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
 		extent(ro)<-extent(elev)
 		# Potential evapotranspiration
-		pet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		pet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
 		extent(pet)<-extent(elev)
 		# Actual evapotranspiration
-		aet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		aet<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
 		extent(aet)<-extent(elev)
 		# Snow water equivalent
-		swe<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		swe<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
 		extent(swe)<-extent(elev)
 		# Condensation
-		# cond<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
-		# extent(cond)<-extent(elev)
+		cond<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
+		extent(cond)<-extent(elev)
 		# baseflow
-		bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=ny)
+		bflow<-brick(nrows=nrow(elev), ncols=ncol(elev), crs=crs(elev), nl=nl)
 		extent(bflow)<-extent(elev)
-		tdrain<-bflow
-		q_in<-bflow
-		snwage<-bflow
+		netrad<-bflow
+		sm_lim<-bflow
 		#move inputs to the memory
 		sw_in<-readAll(sw_in)
 		tc<-readAll(tc)
 		pn<-readAll(pn)
-		wn<-readAll(wn)
-		snow<-readAll(snow)
 		elev<-readAll(elev)
 		lat<-readAll(lat)
 		terraines<-readAll(terraines)
 		soil<-readAll(soil)
 		Au<-readAll(Au)
-		bf_in<-readAll(bf_in)
-		tdin<-readAll(tdin)
-		snwage_in<-readAll(snwage_in)
-	
+		
+		
 	}
-			
+	
 	###############################################################################################
 	# 01. set the clusters for parallel computing
 	###############################################################################################	
 	cl <- getCluster()
-	on.exit( returnCluster() )
 	nodes <- length(cl)
-	bs <- blockSize(sw_in, minblocks=nodes*2)
-	parallel:::clusterExport(cl, c("sw_in","tc","pn",'wn','snow',"elev","lat","terraines",'soil','y','resolution','Au','bf_in', 'tdin','bs'),envir=environment()) 
+	########################### set the size of the blocks
+	message('Using cluster with ', nodes, ' nodes')
+	if(nodes>1){
+		bs <- blockSize(sw_in, minblocks=nodes*2)
+	}else{
+		bs <- blockSize(sw_in, minblocks=nodes*10)
+	}
+	########################### export the vaiables to the nodes 
+	parallel:::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','resolution','Au','ztime','bs','splash.point','sim.control'),envir=environment()) 
 	pb <- pbCreate(bs$n)
-	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 1)
+	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 3)
+	#cat("computing...","\n")
 	###############################################################################################
 	# 02. create the functions to send to the workers, split the data in chunks
 	###############################################################################################	
 	clFun <- function(i) {
-		swrow<- split(getValues(sw_in, bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		tcrow<-split(getValues(tc,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		pnrow<-split(getValues(pn,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		wnrow<-split(getValues(wn,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		snowrow<-split(getValues(snow,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		latrow<-getValues(lat,bs$row[i], bs$nrows[i])
-		elevrow<-getValues(elev,bs$row[i], bs$nrows[i])
-		sloprow<-getValues(terraines[[1]],bs$row[i], bs$nrows[i])
-		asprow<-getValues(terraines[[2]],bs$row[i], bs$nrows[i])
-		soilrow<-split(getValues(soil,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		Aurow<-split(getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		qinrow<-split(getValues(bf_in,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		tdrow<-split(getValues(tdin,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		snwagerow<-split(getValues(snwage_in,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
-		resrow<-getValues(resolution,bs$row[i], bs$nrows[i])
+		swrow<- split(raster::getValues(sw_in, bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		tcrow<-split(raster::getValues(tc,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		pnrow<-split(raster::getValues(pn,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		elevrow<-raster::getValues(elev,bs$row[i], bs$nrows[i])
+		sloprow<-raster::getValues(terraines[[1]],bs$row[i], bs$nrows[i])
+		asprow<-raster::getValues(terraines[[2]],bs$row[i], bs$nrows[i])
+		latrow<-raster::getValues(lat,bs$row[i], bs$nrows[i])
+		soilrow<-split(raster::getValues(soil,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		Aurow<-split(raster::getValues(Au,bs$row[i], bs$nrows[i]),1:(ncol(elev)*bs$nrows[i]))
+		resrow<-raster::getValues(resolution,bs$row[i], bs$nrows[i])
 		# do calculations
-		yearlist<-mapply(run_one_year,latrow,elevrow,sloprow,asprow,swrow,tcrow,pnrow,wnrow,y,snowrow,soilrow,Aurow,resrow,qinrow,tdrow,snwagerow)
-			
-		return(yearlist)
+		
+		
+		splash_block<-mapply(splash.point,
+			sw_in=swrow,	# shortwave radiation W/m2
+			tc=tcrow,		# air temperature C
+			pn= pnrow,		# precipitation mm
+			lat=latrow,		# latitude deg
+			elev=elevrow,		# elevation masl
+			slop=sloprow,	# slope deg
+			asp=asprow,		# aspect deg
+			soil_data=soilrow, 		
+			Au=Aurow,
+			resolution=resrow,
+			MoreArgs=list(ts_out=FALSE,monthly_out=sim.control$monthly_out,time_index=ztime,verbose=FALSE),
+			SIMPLIFY =TRUE
+		)
+		
+		
+		return(splash_block)
 	}
 	###############################################################################################
 	# 03. send tasks to the nodes
@@ -759,17 +315,30 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 	###############################################################################################
 	# 04. write to the disk on the go, or save to the ram
 	###############################################################################################
-	if(!inmem){
-		sm<-writeStart(sm,filename=paste0("sm","_",y,".grd"),overwrite=TRUE)
-		ro<-writeStart(ro,filename=paste0("ro","_",y,".grd"),overwrite=TRUE)
-		pet<-writeStart(pet,filename=paste0("pet","_",y,".grd"),overwrite=TRUE)
-		aet<-writeStart(aet,filename=paste0("aet","_",y,".grd"),overwrite=TRUE)
-		swe<-writeStart(swe,filename=paste0("swe","_",y,".grd"),overwrite=TRUE)
-		# cond<-writeStart(cond,filename=paste0("cond","_",y,".grd"),overwrite=TRUE)
-		bflow<-writeStart(bflow,filename=paste0("bflow","_",y,".grd"),overwrite=TRUE)
-		tdrain<-writeStart(tdrain,filename=paste0("tdrain","_",y,".grd"),overwrite=TRUE)
-		q_in<-writeStart(q_in,filename=paste0("q_in","_",y,".grd"),overwrite=TRUE)
-		snwage<-writeStart(snwage,filename=paste0("snwage","_",y,".grd"),overwrite=TRUE)
+	if(!sim.control$inmem){
+		
+		
+		sm<-writeStart(sm,filename=paste0(outdir,"/",'SPLASH_v2.0_',"sm",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="wm", varunit="mm",	longname='Soil water content', xname="lon", yname="lat", zname="time")
+		
+		ro<-writeStart(ro,filename=paste0(outdir,"/",'SPLASH_v2.0_',"ro",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="ro", varunit="mm",	longname='surface runoff', xname="lon", yname="lat", zname="time")
+		
+		pet<-writeStart(pet,filename=paste0(outdir,"/",'SPLASH_v2.0_',"pet",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="pet", varunit="mm",	longname='potential evapotranspiration', xname="lon", yname="lat", zname="time")
+		
+		aet<-writeStart(aet,filename=paste0(outdir,"/",'SPLASH_v2.0_',"aet",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="aet", varunit="mm",	longname='actual evapotranspiration', xname="lon", yname="lat", zname="time")
+		
+		swe<-writeStart(swe,filename=paste0(outdir,"/",'SPLASH_v2.0_',"swe",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="swe", varunit="mm",	longname='snow water equivalent', xname="lon", yname="lat", zname="time")
+		
+		cond<-writeStart(cond,filename=paste0(outdir,"/",'SPLASH_v2.0_',"cond",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="cond", varunit="mm",	longname='condensation', xname="lon", yname="lat", zname="time")
+		
+		bflow<-writeStart(bflow,filename=paste0(outdir,"/",'SPLASH_v2.0_',"bflow",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="bflow", varunit="mm",	longname='drainage', xname="lon", yname="lat", zname="time")
+		
+		netrad<-writeStart(netrad,filename=paste0(outdir,"/",'SPLASH_v2.0_',"netrad",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="netrad", varunit="MJ",	longname='daytime net radiation', xname="lon", yname="lat", zname="time")
+		
+		sm_lim<-writeStart(sm_lim,filename=paste0(outdir,"/",'SPLASH_v2.0_',"sm_lim",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="sm_lim", varunit="mm",	longname='fraction of available water content', xname="lon", yname="lat", zname="time")
+		
+		
+		
+		
 		
 	}else {
 		matsm <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
@@ -777,11 +346,10 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		matpet <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		mataet <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		matswe<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
-		# matcond <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
+		matcond <- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		matbflow<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
-		mattdrain<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
-		matq_in<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
-		matsnwage<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
+		matnetrad<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
+		matsm_lim<- matrix(ncol=nlayers(sm), nrow=ncell(sm))
 		endind<-cumsum(bs$nrows*sm@ncols)
 		startind<-c(1,endind+1)    
 	}
@@ -798,17 +366,17 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		# which block is this?
 		b <- d$value$tag
 		# cat('received block: ',b,'\n'); flush.console();
-		if (!inmem) {
+		if (!sim.control$inmem) {
 			sm <- writeValues(sm,do.call(rbind,d$value$value[1,]), bs$row[b])
 			ro <- writeValues(ro, do.call(rbind,d$value$value[2,]), bs$row[b])
 			pet <- writeValues(pet, do.call(rbind,d$value$value[3,]), bs$row[b])
 			aet <- writeValues(aet, do.call(rbind,d$value$value[4,]), bs$row[b])
 			swe <- writeValues(swe, do.call(rbind,d$value$value[5,]), bs$row[b])
-			# cond <- writeValues(cond, do.call(rbind,d$value$value[6,]), bs$row[b])
+			cond <- writeValues(cond, do.call(rbind,d$value$value[6,]), bs$row[b])
 			bflow <- writeValues(bflow, do.call(rbind,d$value$value[7,]), bs$row[b])
-			tdrain <- writeValues(tdrain, do.call(rbind,d$value$value[9,]), bs$row[b])
-			q_in <- writeValues(q_in, do.call(rbind,d$value$value[10,]), bs$row[b])
-			snwage <- writeValues(snwage, do.call(rbind,d$value$value[11,]), bs$row[b])
+			netrad <- writeValues(netrad, do.call(rbind,d$value$value[8,]), bs$row[b])
+			sm_lim <- writeValues(sm_lim, do.call(rbind,d$value$value[9,]), bs$row[b])
+			
 			
 		} else {
 			
@@ -817,12 +385,11 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 			matpet[startind[b]:endind[b],] <- do.call(rbind,d$value$value[3,])
 			mataet[startind[b]:endind[b],] <- do.call(rbind,d$value$value[4,])
 			matswe[startind[b]:endind[b],] <- do.call(rbind,d$value$value[5,])
-			# matcond[startind[b]:endind[b],] <- do.call(rbind,d$value$value[6,])
+			matcond[startind[b]:endind[b],] <- do.call(rbind,d$value$value[6,])
 			matbflow[startind[b]:endind[b],] <- do.call(rbind,d$value$value[7,])
-			mattdrain[startind[b]:endind[b],] <- do.call(rbind,d$value$value[9,])
-			matq_in[startind[b]:endind[b],] <- do.call(rbind,d$value$value[10,])
-			matsnwage[startind[b]:endind[b],] <- do.call(rbind,d$value$value[11,])
-		}
+			matnetrad[startind[b]:endind[b],] <- do.call(rbind,d$value$value[8,])
+			matsm_lim[startind[b]:endind[b],] <- do.call(rbind,d$value$value[9,])
+			}
 		
 		# need to send more data?
 		ni <- nodes + i
@@ -831,45 +398,56 @@ run_one_year.grid<-function(sw_in, tc, pn,wn,snow ,elev,lat, terraines,soil, y, 
 		}
 		setTxtProgressBar(pb,i)
 	}
+	close(pb)
 	###############################################################################################
 	# 06. close connection with the files, or assign valueas to the raster objects
 	###############################################################################################
 	
-	if (!inmem) {
+	if (!sim.control$inmem) {
 		sm <- writeStop(sm)
 		ro <- writeStop(ro)
 		pet <- writeStop(pet)
 		aet <- writeStop(aet)
 		swe <- writeStop(swe)
-		# cond <- writeStop(cond)
+		cond <- writeStop(cond)
 		bflow <- writeStop(bflow)
-		tdrain <- writeStop(tdrain)
-		q_in <- writeStop(q_in)		
-		snwage <- writeStop(snwage)		
+		netrad <- writeStop(netrad)
+		sm_lim <- writeStop(sm_lim)		
+		
 	} else {
 		# soil water content
 		sm<-setValues(sm,matsm)
+		sm<-setZ(sm,ztime_out)
 		# runoff
 		ro<-setValues(ro,matro)
+		ro<-setZ(ro,ztime_out)
 		# Potential evapotranspiration
 		pet<-setValues(pet,matpet)
+		pet<-setZ(pet,ztime_out)
 		# Actual evapotranspiration
 		aet<-setValues(aet,mataet)
+		aet<-setZ(aet,ztime_out)
 		# Snow water equivalent
 		swe<-setValues(swe,matswe)
+		swe<-setZ(swe,ztime_out)
 		# Condensation
-		# cond<-setValues(cond,matcond)
+		cond<-setValues(cond,matcond)
+		cond<-setZ(cond,ztime_out)
 		# baseflow
 		bflow<-setValues(bflow,matbflow)
-		# time drainage
-		tdrain<-setValues(tdrain,mattdrain)
-		q_in<-setValues(q_in,matq_in)
-		# snow age
-		snwage<-setValues(snwage,matsnwage)
+		bflow<-setZ(bflow,ztime_out)
+		# net radiation
+		netrad<-setValues(netrad,matnetrad)
+		netrad<-setZ(netrad,ztime_out)
+		##fraction FC
+		sm_lim<-setValues(sm_lim,matsm_lim)
+		sm_lim<-setZ(sm_lim,ztime_out)
 		
 	}
-	close(pb)
+	
 	gc()
-	return(list(wn=stack(sm),ro=stack(ro),pet=stack(pet),aet=stack(aet),snow=stack(swe),bflow=stack(bflow),tdrain=stack(tdrain),q_in=stack(q_in),snwage=stack(snwage)))
+	return(list(wn=sm,ro=ro,pet=pet,aet=aet,snow=swe,bflow=bflow,cond=cond,netrad=netrad,sm_lim=sm_lim))
+		
 		
 }
+

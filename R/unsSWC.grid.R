@@ -11,11 +11,22 @@
 #' @examples
 #' unSWC()
 
-unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
+unSWC.grid<-function(soil_data,uns_depth,wn,d_name ,outdir=getwd()){
 #########################################################################
 ######################### 1.0 define functions ##############################
 #########################################################################
-
+	ztime<-getZ(wn)
+	time.freq<-ztime[2]-ztime[1]
+		
+	if(abs(as.numeric(time.freq, units = "days"))<2){
+		time_text<-'daily'
+		}else{
+		time_text<-'monthly'
+	}
+	
+	
+	
+	
 
 	UnsWater<-function(psi_m,uns_depth,theta_r,theta_s,bub_press,lambda,depth){
 		#-----------------------------------------------------------------------
@@ -55,10 +66,10 @@ unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
 	# wn<-simdf[,1]
 	#########################################################################
 	######################### 2. get soil hydrophysics ##############################
-	soil_info<-soil_hydro(sand=soil_data[[1]],clay=soil_data[[2]],OM=soil_data[[3]],fgravel =soil_data[[4]] ,bd = soil_data[[5]])
+	soil_info<-soil_hydro(sand=soil_data[[1]],clay=soil_data[[2]],OM=soil_data[[3]],fgravel =soil_data[[4]]*0 ,bd = soil_data[[5]])
 	## assume 0.0 as residula water 
 	theta_s<-soil_info$SAT
-	theta_r<-soil_info$WP * 0.0
+	theta_r<-soil_info$RES
 	z_uns <- uns_depth
 	lambda<-1/soil_info$B
 	bub_press<-soil_info$bubbling_p
@@ -76,7 +87,7 @@ unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
 		# i[i<=r]<-r+0.01
 		w
 	}
-	theta_i<-overlay(wn,theta_s,theta_r,soil_data[[6]],fun=calc_thetai,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".","theta_mean",".","nc"),format="CDF",overwrite=TRUE,varname="theta", varunit="m3/m3",longname="volumetric soil moisture", xname="lon", yname="lat", zname="time")
+	theta_i<-overlay(wn,theta_s,theta_r,soil_data[[6]],fun=calc_thetai,filename=paste0(outdir,"/",'SPLASH_v2.0_',"theta_mean",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="theta", varunit="m3/m3",longname="volumetric soil moisture", xname="lon", yname="lat", zname="time")
 	
 	# writeRaster(result.all$wn,paste0(outdir,"/",y[1],"_",y[length(y)],".","theta_top",".","nc"),format="CDF",overwrite=TRUE,varname="theta", varunit="m3/m3",longname="volumetric soil moisture", xname="lon", yname="lat", zname="time")
 	#########################################################################
@@ -94,7 +105,8 @@ unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
 		# wtdini
 	}
 	
-	wtd<-overlay(psi_m,soil_data[[6]],bub_press,fun=calcwtd,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".","wtd",".","nc"),format="CDF",overwrite=TRUE,varname="wtd", varunit="m",longname="water table depth", xname="lon", yname="lat", zname="time")
+	wtd<-overlay(psi_m,soil_data[[6]],bub_press,fun=calcwtd,filename=paste0(outdir,"/",'SPLASH_v2.0_',"wtd",'_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="wtd", varunit="m",longname="water table depth", xname="lon", yname="lat", zname="time")
+	
 	# # Find where the water table is whitin the root zone
 	# shallow_wtd<-wtd<=uns_depth
 	# # calculate the swc of the saturated part whitin the zoot zone
@@ -102,17 +114,17 @@ unSWC.grid<-function(soil_data,uns_depth,wn, outdir=getwd()){
 	#########################################################################
 	######################### 6. update unsaturated zone ##############################
 	# update unsaturated zone
-	w_z<-overlay(psi_m,z_uns,theta_r,theta_s,bub_press,lambda,uns_depth,fun=UnsWater,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".","swc_top",".","nc"),format="CDF",overwrite=TRUE,varname="swc", varunit="mm",longname="soil water content", xname="lon", yname="lat", zname="time")
+	w_z<-overlay(psi_m,z_uns,theta_r,theta_s,bub_press,lambda,uns_depth,fun=UnsWater,filename=paste0(outdir,"/",'SPLASH_v2.0_',"swc_top_",d_name,'_m','_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="swc", varunit="mm",longname="soil water content", xname="lon", yname="lat", zname="time")
 	#########################################################################
 	######################### 7. get effective saturation at the top ##############################
-	soil_info<-soil_hydro(sand=soil_data[[1]],clay=soil_data[[2]],OM=soil_data[[3]],fgravel =soil_data[[4]]*0 ,bd = soil_data[[5]])
+	#soil_info<-soil_hydro(sand=soil_data[[1]],clay=soil_data[[2]],OM=soil_data[[3]],fgravel =soil_data[[4]],bd = soil_data[[5]])
 	calc_Se=function(w_z,uns_depth,theta_s){
 		theta_i_top=w_z/(uns_depth*1000)
 		Se=theta_i_top/theta_s
 		Se=ifelse(Se>1,1,ifelse(Se<0,0,Se))
 		Se
 	}
-	Se=overlay(w_z,uns_depth,theta_s,fun=calc_Se,filename=paste0(outdir,"/",y[1],"_",y[length(y)],".","Se_top",".","nc"),format="CDF",overwrite=TRUE,varname="Se", varunit="fraction",longname="effective saturation or water filled porosity", xname="lon", yname="lat", zname="time")
+	Se=overlay(w_z,uns_depth,theta_s,fun=calc_Se,filename=paste0(outdir,"/",'SPLASH_v2.0_',"Se_top_",d_name,'_m','_',time_text,'_',y[1],"-",y[length(y)],".nc"),format="CDF",overwrite=TRUE,varname="Se", varunit="fraction",longname="effective saturation or water filled porosity", xname="lon", yname="lat", zname="time")
 	
 	
 	# psi_m<-as.numeric(psi_m)

@@ -9,8 +9,9 @@
 - Dunne and/or Hortonian runoff generation.
 - Analytical solutions for lateral flow and soil water content at any depth (max 2m. at the moment).
 - Soil hydrophysical properties estimated by using globally recalibrated pedotransfer functions.
-- Maximum water retention in the soil-column computed by equilibrating gravity pushing down and capillarity pulling up.
+- Maximum water retention in the soil-column computed by equilibrating gravity pushing down and capillary force pulling up.
 - Water viscosity effects on the hydraulic conductivity.
+- Lateral flow estimations.
 - Implementation of empirical formulations (from global studies) to estimate snowfall occurrence and rainfall/snowfall fractions.
 - Snowpack balance calculations.
 
@@ -61,6 +62,6 @@ addLegend(legend.loc = "topright", legend.names =c('SWC obs.','SWC sim.'),col=c(
 
 ## References
 
-Sandoval, D., Prentice, I. C., et. al., Simple process-led algorithms for simulating habitats (SPLASH v.2.0): Robust calculations of water and energy fluxes (in progress)
+Sandoval, D., Prentice, I. C. and Nóbrega R. (in progress). Simple process-led algorithms for simulating habitats (SPLASH v.2.0): calibration-free calculations of water and energy fluxes 
 
 Davis, T.W., Prentice, I.C., Stocker, B.D., Thomas, R.T., Whitley, R.J., Wang, H., Evans, B.J., Gallego-Sala, A. V., Sykes, M.T., Cramer, W., 2017. Simple process-led algorithms for simulating habitats (SPLASH v.1.0): robust indices of radiation, evapotranspiration and plant-available moisture. Geosci. Model Dev. 10, 689–708. doi:10.5194/gmd-10-689-2017

@@ -144,8 +144,8 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     ////// calculate cw, assuming lim=1 at max demand (cos(h) =1)
     // maximum instatntaneous demand (pet_max), mm/hr
     double pet_max = rx*((rw*(ru+rv))- rnl) ;
-    //assume cw = pet_max
-    sw *= pet_max*0.55;
+    //assume cw = pet_max pet_max*0.55;
+    sw *= pet_max*0.6;
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Estimate daily water supply, mm
