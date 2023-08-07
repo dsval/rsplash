@@ -1,4 +1,4 @@
-useDynLib(rsplashtest, .registration=TRUE)
+useDynLib(rsplash, .registration=TRUE)
 exportPattern("^[[:alpha:]]+")
 import(Rcpp)
 export(splash.point)
