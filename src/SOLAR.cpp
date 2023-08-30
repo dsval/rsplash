@@ -251,9 +251,10 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 14. Calculate mean surface temperature (C) Yang & Roderick (2019) doi:10.1002/qj.3481
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //ts = tc + 2.517*exp(2.38*tau) + 0.03466 *abs(lat) ;
+    //double LW_in = 
+    ts = tc + 2.517*exp(2.38*tau) + 0.03466 *abs(lat) ;
     // empirical fitting Fluxnet
-    ts = 1.0691*tc + 2.7302*tau - 0.035*abs(lat) + 2.334;
+    //ts = 1.0691*tc + 2.7302*tau - 0.035*abs(lat) + 2.334;
 
 
 }

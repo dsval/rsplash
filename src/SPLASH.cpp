@@ -160,6 +160,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
               - double, daily precipitation, mm (pn)
               - smr, daily soil moisture & runoff
               - double, nd snow age (days)
+              - double AI, Aridity Index inside soil vector
     Output:   None.
     Features: Calculates daily soil moisture and runoff based on STASH
               methods.
@@ -192,6 +193,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
+    double AI = soil_info[12];
     
     // assuming gravity and water density constants, define coefficient to calc graviational potential
     double KG_o=1000.0/(997*Global::G);
@@ -254,25 +256,23 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
     double Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
     
-    
-    
-    
+     
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
-    double sw = 0.0;
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    //Metselaar approach
-    
-    
+    /*
 
+   double sw = 0.0;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        
     // when the soil depth exeeds 2m:
      if (depth>=6.0){
         double RES_z = theta_r * z_uns;
         sw = Global::Cw*((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
-              
+        //Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+        
         sw = Global::Cw*((wn-RES)/(Wmax-RES));
     }
        
@@ -281,7 +281,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
      } else if (sw > Global::Cw){
          sw = Global::Cw;
      }
-    
+
     /*
     
     // ####################################################################################################################
@@ -430,7 +430,31 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
           sw = 0.0;
     }
     */
+
+
+    double max_sw = 1.0/ pow((1 + pow(AI,6.8681)),0.07956432);
+   
+
+    double sw = 0.0;
     
+
+    // when the soil depth exeeds 2m:
+     if (depth>=6.0){
+        double RES_z = theta_r * z_uns;
+        sw = ((w_z-RES_z)/(Wmax-RES_z));
+    } else{
+    // bedrock < 2 m    
+              
+        sw = ((wn-RES)/(Wmax-RES));
+    }
+       
+    if (sw < 0.0 || isnan(sw)==1) {
+         sw = 0.0;
+     } else if (sw > 1.0){
+         sw = 1.0;
+     }
+    
+    sw *= max_sw;
 
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -458,6 +482,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     rn_d = dn.rn_d;
     snow -= dn.snowmelt;
     visc = dn.visc;
+    double pet_d = dn.pet;
     //4.3. calc effective snowmelt (reaching the surface)
     double snowmelt = dn.snowmelt - dn.sublimation;
     
@@ -483,7 +508,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double surf_moist = moist_surf(depth,10.0,bub_press,wn,SAT,RES,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 3hrs
     double theta_m = max(Wmax/(depth *1000.0),theta_i);
-    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,3.0,slop);
+    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
     // 5.1.5. calculate Hortonian (infiltration excess) runoff
     double ro_h = max(inflow-infi,0.0);
     // 5.1.6. calculate recharge
@@ -496,7 +521,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     double hyd_grad_out = dtan(slop);
     // when the soil depth exeeds 2m:
     double hyd_grad_z = (infi/(Ksat_visc*24.0))-1.0;
-     if (depth>=2.0){
+     if (depth>=0.0){
         hyd_grad_out =  sqrt(pow((hyd_grad_z),2)+pow(hyd_grad_in,2));
         } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -799,6 +824,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     dsm.sqout = qin_nday;
     dsm.tdr = tdrain_out;
     dsm.nd = nd;
+    dsm.pet = pet_d;
    
 }
 
@@ -851,6 +877,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //neighbourhood  cells
     double cellin = soil_info[10];
     double cellout = soil_info[11];
+    double AI = soil_info[12];
     // assuming gravity and water density constants, define coefficient to calc gravitional potential
     double KG_o=1000.0/(997*Global::G);
     //if(isnan(soil_info[12])==1 ){
@@ -911,9 +938,11 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double coeff_A = exp(log(33.0) + (1.0/lambda)*log(theta_fc));
     //double Wmax = pow((coeff_A*KG_o/(z_uns/1000.0)), (1.0/((1/lambda)+1.0))) * (z_uns) ;
     double Wmax = pow((coeff_A*KG_o/(depth)), (1.0/((1/lambda)+1.0))) * (depth *1000.0) ;
+   
    // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
+    /*
     double sw = 0.0;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         
@@ -983,6 +1012,30 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     }
     */
     
+    double max_sw = 1.0/ pow((1 + pow(AI,6.8681)),0.07956432);
+   
+
+    double sw = 0.0;
+    
+
+    // when the soil depth exeeds 2m:
+     if (depth>=6.0){
+        double RES_z = theta_r * z_uns;
+        sw = ((w_z-RES_z)/(Wmax-RES_z));
+    } else{
+    // bedrock < 2 m    
+              
+        sw = ((wn-RES)/(Wmax-RES));
+    }
+       
+    if (sw < 0.0 || isnan(sw)==1) {
+         sw = 0.0;
+     } else if (sw > 1.0){
+         sw = 1.0;
+     }
+    
+    sw *= max_sw;
+
     // ####################################################################################################################
     // 04. Snowpack and energy Balances
     // ####################################################################################################################  
@@ -1031,7 +1084,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double surf_moist = moist_surf(depth,10.0,bub_press,wn,SAT,RES,lambda);
     // 5.1.4. calculate infiltration assuming storm duration max 3hrs
     double theta_m = max(Wmax/(depth *1000.0),theta_i);
-    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,3.0,slop);
+    double infi = inf_GA(bub_press,surf_moist,Ksat_visc,theta_s,lambda,inflow,6.0,slop);
     // 5.1.5. calculate Hortonian (infiltration excess) runoff
     double ro_h = max(inflow-infi,0.0);
     // 5.1.6. calculate recharge
@@ -1045,7 +1098,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     double hyd_grad_out = dtan(slop);
     // when the soil depth exeeds 2m:
     double hyd_grad_z = (infi/(Ksat_visc*24))-1.0;
-     if (depth>=2.0){
+     if (depth>=0.0){
         hyd_grad_out =  sqrt(pow((hyd_grad_z),2)+pow(hyd_grad_in,2));
         } 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1402,6 +1455,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     vector <double> tdrain_vec(n,0.0);
     vector <double> qin_prev_vec(n,0.0);
     vector <double> nds_prev_vec(n,0.0);
+    vector <double> pet_vec(n,0.0);
     // Run one year:
     for (int i=0; i<n; i++){
         // Get preceeding soil moisture status:
@@ -1429,6 +1483,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
         tdrain_vec[i] = dsm.tdr;
         qin_prev_vec[i] = dsm.sqout;
         nds_prev_vec[i] = dsm.nd;
+        pet_vec[i] = dsm.pet;
         
     }
 
@@ -1509,7 +1564,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     // Save initial soil moisture condition:
     //dsoil.sm = wn_vec[n-1];
     
-    return List::create(Named("sm") = wn_vec, Named("snow") = snow_vec,Named("qin") = qin_prev_vec,Named("tdrain") = tdrain_vec, Named("ro") = ro_vec, Named("snwage") = nds_prev_vec);
+    return List::create(Named("sm") = wn_vec, Named("snow") = snow_vec,Named("qin") = qin_prev_vec,Named("tdrain") = tdrain_vec, Named("ro") = ro_vec, Named("snwage") = nds_prev_vec, Named("pet") = pet_vec);
 }
 
 List SPLASH::run_one_year(int n, int y, vector<double> &sw_in, vector <double> &tair, vector <double> &pn, vector <double> &wn_vec, 

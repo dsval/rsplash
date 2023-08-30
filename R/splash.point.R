@@ -111,7 +111,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 	}else{
 		ncellin<-Au[2]
 		ncellout<-Au[3]
-		soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout)
+		soil_info<-c(SAT,WP,FC,soil_info$Ksat,lambda,depth,bub_press,RES,Au[1],resolution^2,ncellin,ncellout,1)
 	}
 	###########################################################################
 	# define snowfall occurrence:
@@ -123,6 +123,7 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 	# 3. get the fraction of precipitation falling as rain
 	f_rain<-ifelse(p_snow>=0.5,frain_func(tc,Tt,13.3,time_index)[[1]],1)
 	# define snowfall and rainfall:
+	
 	snowfall<-as.numeric(pn)*(1-f_rain)
 	pn<-as.numeric(pn)*f_rain
 	
@@ -131,13 +132,24 @@ splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resol
 	###########################################################################
 	# 02. Get steady state
 	###########################################################################
-	# average daily for spin-up
-	# sw_av<-tapply(sw_in,format(time(sw_in),"%j"),mean, na.rm=TRUE)
-	# tc_av<-tapply(tc,format(time(sw_in),"%j"),mean, na.rm=TRUE)
-	# pn_av<-tapply(pn,format(time(sw_in),"%j"),mean, na.rm=TRUE)
-	
+	# option 1. average daily for spin-up
+	# sw_av=fastmatch::ctapply(sw_in,INDEX=format(time_index,"%j"),FUN=mean,na.rm=T)
+	# tc_av=fastmatch::ctapply(tc,INDEX=format(time_index,"%j"),FUN=mean,na.rm=T)
+	# pn_av=fastmatch::ctapply(pn,INDEX=format(time_index,"%j"),FUN=mean,na.rm=T)
+	# snowf_av=fastmatch::ctapply(snowfall,INDEX=format(time_index,"%j"),FUN=mean,na.rm=T)
+	##option 2 first year spin up
+	sw_av=sw_in[1:365]
+	tc_av=tc[1:365]
+	pn_av=pn[1:365]
+	snowf_av=snowfall[1:365]
+	##get initial aridity index
+	##save initial year to calc AI
+	Pinit<-as.numeric(pn_av+snowf_av)
+	initial_AI<-my_splash$spin_up(as.integer(365), as.integer(y[1]), as.numeric(sw_av[1:365]), as.numeric(tc_av[1:365]),as.numeric(pn_av[1:365]),slop,asp,as.numeric(snowf_av[1:365]),soil_info)
+	#update aridity
+	soil_info[12]<-sum(initial_AI$pet,na.rm=T)/sum(Pinit[1:365],na.rm = T)
 	# run spin up
-	initial<-my_splash$spin_up(as.integer(365), as.integer(y[1]), as.numeric(sw_in[1:365]), as.numeric(tc[1:365]),as.numeric(pn[1:365]),slop,asp,as.numeric(snowfall[1:365]),soil_info)
+	initial<-my_splash$spin_up(as.integer(365), as.integer(y[1]), as.numeric(sw_av[1:365]), as.numeric(tc_av[1:365]),as.numeric(pn_av[1:365]),slop,asp,as.numeric(snowf_av[1:365]),soil_info)
 	###########################################################################
 	# run splash
 	###########################################################################
@@ -320,16 +332,35 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	#coeff_c = 1000.0/(997*9.80665);
 	#theta_c<-(coeff_c*coef_A/1.0)^(1/(1+coef_B))
 	########################################################################################
-	# 07. residual water content lm Sandoval(in prep.)
+	# 07. residual water content lm Sandoval(in prep.); Dexter et al., (2012) 10.1016/j.geoderma.2012.01.029
 	######################################################################################## 
 	#theta_r<-0.4068341*wp+0.0050417*coef_lambda+0.0143244*bd
-	theta_r<-0.53097*wp
+	#theta_r<-wp
+	#theta_r<-0.53097*wp
+	theta_r<-(0.0285 + 0.00336*(clay))*bd
+	theta_r[!is.na(theta_r) & theta_r>wp]<-wp
 	########################################################################################
 	# 08a. calc Saturated hydraulic conductivity Ksat [mm/hr] from calibrated Saxton and Rawls (2006)
 	######################################################################################## 
 	#ksat<-(4743.514223*(sat-fc)^(2.737082+0.240194*coef_lambda ))
 	#ksat<-(6587*(sat-fc)^(3.347-coef_lambda ))
+	########################################################################################
+	# 08b. calc Saturated hydraulic conductivity Ksat [mm/hr] from rsplash. Sandoval(in prep.)
+	######################################################################################## 
 	
+	sat<-sat*(1-fgravel)
+	fc<-fc*(1-fgravel)
+	wp<-wp*(1-fgravel)
+	#ksat <- 622.9916/(1 + exp(7.5623 -17.1442 * (sat-fc) -0.9141 * bd + 0.7076 * coef_lambda))
+	coeff_ksat<-c(ksmax=857.48454,k2=-2.70927 ,k3=3.62264,k4=7.33398,k5=-8.11795, k6=18.75552, k7=1.03319 )
+	
+	ksat<-coeff_ksat['ksmax']/(1 + exp(coeff_ksat['k2'] * fsand + 
+		coeff_ksat['k3'] * bd + 
+		coeff_ksat['k4'] * fclay + 
+		coeff_ksat['k5'] *	(sat-fc) + 
+		coeff_ksat['k6'] * fOM + 
+		coeff_ksat['k7'] * coef_lambda)
+)
 
 ########################################################################################
 # 09. calc Air entry pressure [mm] from calibrated Saxton and Rawls (2006)
@@ -350,26 +381,6 @@ if(!is.numeric(sand)){
 
 #I still found around n=100 air entry pressures higher than 33kPa using the testing db (n=68567), assume 90% of saturation for those samples
 #bubpt[bubpt<=-3365.064]<-(33-(33*((sat-fc)/(0.9*sat-fc))))*101.97162129779
-########################################################################################
-# 08b. calc Saturated hydraulic conductivity Ksat [mm/hr] from rsplash. Sandoval(in prep.)
-######################################################################################## 
-
-sat<-sat*(1-fgravel)
-fc<-fc*(1-fgravel)
-wp<-wp*(1-fgravel)
-#ksat <- 1200/(1 + exp(7.5623 -17.1442 * (sat-fc) -0.9141 * bd + 0.7076 * coef_lambda))
-ksat <- 4.726e+02/(1 + exp(2.670*bd+92.1*theta_r+12.38*(fc-wp)-9.409 * 
-		theta_c -1.416e+01 * (sat-fc) + 6.499e-15 * bubbling_p ))
-#coeff_ksat<-c(ksmax=857.48454,k2=-2.70927 ,k3=3.62264,k4=7.33398,k5=-8.11795, k6=18.75552, k7=1.03319 )
-
-# 	ksat<-coeff_ksat['ksmax']/(1 + exp(coeff_ksat['k2'] * fsand + 
-# 		coeff_ksat['k3'] * bd + 
-# 		coeff_ksat['k4'] * fclay + 
-# 		coeff_ksat['k5'] *	(sat-fc) + 
-# 		coeff_ksat['k6'] * fOM + 
-# 		coeff_ksat['k7'] * coef_lambda)
-# )
-
 ########################################################################################
 # 05. calc shape parameters water retention for van Genuchten's curve Rawls (1985)
 ######################################################################################## 
