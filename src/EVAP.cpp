@@ -84,7 +84,7 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 1. Calculate radiation values
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    solar.calculate_daily_fluxes(n, y, sw_in, tc, slop, asp,snow, nd);
+    solar.calculate_daily_fluxes(n, y, sw_in, tc, slop, asp,snow, nd, sw);
     d_sr = solar.get_vals();
     ru = d_sr.ru;
     rv = d_sr.rv;
@@ -112,9 +112,11 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     lv = enthalpy_vap(tc);
     pw = density_h2o(tc, patm);
     g = psychro(tc, patm);
-    //econ = s/(lv*pw*(s + g));
+    // specific heat J/kg/K
+    //double Cp = specific_heat(tw);
+    econ = s/(lv*pw*(s + g));
     // max evaporation from Yang & Roderick (2019) doi:10.1002/qj.3481
-    econ = s/(lv*pw*(s + 0.24*g));
+    //econ = s/(lv*pw*(s + 0.24*g));
     visc = calc_viscosity_h2o(tw,patm);
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 3. Calculate daily condensation (wc), mm assume 10% of rnn_d (Jones, 2013)
@@ -124,7 +126,7 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 4. Estimate daily equilibrium evapotranspiration (eet_d), mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    eet_d = (1.0e3)*econ*rn_d;
+    eet_d = (1.0e3)*(s/(lv*pw*(s + 0.24*g)))*rn_d;
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 5. Estimate daily potential evapotranspiration (pet_d), mm
@@ -143,15 +145,31 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     rx = (3.6e6)*econ;
     ////// calculate cw, assuming lim=1 at max demand (cos(h) =1)
     // maximum instatntaneous demand (pet_max), mm/hr
-    double pet_max = rx*((rw*(ru+rv))- rnl) ;
+    pet_max = rx*((rw*(ru+rv))- rnl) ;
     //assume cw = pet_max pet_max*0.55;
-    //sw *= pet_max*0.6;
-    sw *= pet_max*0.4;
+    //sw *= pet_max;
+    //sw *= 0.5;
+    
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 9. Estimate daily water supply, mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //// calc bowen ratio using eq. 17 from Gentine et al., (2011) doi:10.1175/2011JHM1261.1
+    double B_r = g/(sw*s);
+    //double B_r = (1/sw) + g/(sw*s) - 1.0;
+
+    double EF = 1/(B_r + 1.0);
+    ///update sw
+    sw = pet_max*EF;
+
+     if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    } 
+    //else if (sw > pet_max){
+      //    sw = pet_max;
+    //}
+    ////////////////////////////////////////////////////////////////////////////////////////
     //9.1. Soil matric potential to MPa
-    //double psi_m_mpa = psi_m * 0.00000980665;
+    //double psi_m_mpa = sw;
     // //9.2. Transpiration potential to mol/m2
     // double T_mol = pet_d / (18/pw);
     // //9.3. Leaf water potential [atm]
@@ -169,21 +187,21 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     /*
     //9.1. Soil matric potential to MPa
-    double psi_m_mpa = psi_m * 0.00000980665;
+    double psi_m_mpa = sw;
     // //9.2. Leaf water potential at critical leaf RWC [MPa]
     // molar volume
     double v_m = 18/pw;
-    double psi_l_c = ((0.082*(273.15+tw)*log(0.90))/(v_m))*0.101325;
-    // //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    double Rp = (-0.033-psi_l_c)/pet_d;
-
     // //9.3. Leaf water potential assuming RWC at 98% [MPa]
-    double psi_l = ((0.082*(273.15+tw)*log(0.98))/(v_m))*0.101325;
-        
-    //9.5. water supply mm/day
-    double sw = (psi_m_mpa-psi_l)/Rp;
-    */
+    double psi_l = ((0.082*(273.15+ts)*log(0.98))/(v_m))*0.101325;
+   //total resistance
+   // double Rp = (-1.0*psi_l)/pet_max;
+         
+    // dimensioles Psi_s eq. 9.17 Campbell, 1998 
+    double psi_ratio = psi_m_mpa/psi_l;
 
+    sw = (1.0 - (2.0 * psi_ratio/3.0))*pet_max;
+    sw *= 0.3;
+    */
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 7. Calculate the intersection hour angle (hi), degrees
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -202,23 +220,16 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     // 8. Estimate daily snowmelt, mm and energy available for sublimation assume first snow melt then evaporate
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // estimate cold content [J/m^2] Hock, (2005) doi:10.1191/0309133305pp453ra [J/kg]
-    double Qsnow = 0.0;
-    if ((ts < 0.0)){
-        Qsnow =   Global::Cpsnow * abs(ts) ;
-    }
-    // total energy required to raise the temperature and melt per kg [J/kg]
-    double Qmelt = Global::kfus + Qsnow;
-    
     //double Qsnow = 0.0;
-    //if ((ts < 0.0) && (elv > 1500)){
-    //    Qsnow =   Global::Cpsnow * pw * (snow/1000.0) * abs(ts) ;
-    //}
-    //snowmelt = min(snow,(rn_d/(pw*(Qmelt)))*1000.0);
-    // energy available for snowmelt
+   // if ((tc < 0.0) && (elv > 2000) && (snow > 0.0)){
+   //     Qsnow =   Global::Cpsnow * abs(tc) ;
+   // }
+    // available energy after heating the snow
     //double AE = max(0.0,rn_d-Qsnow);
-    // calc snowmelt
-    //snowmelt = min(snow,(AE/(pw*Global::kfus))*1000.0);
     
+    
+    // calc snowmelt
+       
     if (tc >= 3.0) {
 		snowmelt = min(snow,(rn_d/(pw*Global::kfus))*1000.0);
 	}else{
@@ -228,11 +239,13 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     
     // energy used in melting
 	double melt_enrg = (snowmelt/1000)*pw*Global::kfus;
+    // update available energy
+    //AE -= melt_enrg;
 	// energy available after snowmelt
     double AE = rn_d - melt_enrg;
     //calc evaporation from melted water (sublimation)
     sublimation = min(snowmelt,(AE*econ)*1000.0);
-    // energy used in melting + evaporation
+    // energy used in heating +  melting + evaporating snow
     melt_enrg += ((sublimation/1000.0)/econ);
     
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -244,6 +257,7 @@ void EVAP::calculate_daily_fluxes(double sw, int n, int y, double sw_in,
     aet_d *= (24.0/Global::PI);
     //aet_d = sw*pet_d;
     aet_d -= (melt_enrg*econ*1000.0);
+   
     if (aet_d < 0.0){
         aet_d = 0.0;
     }
@@ -517,6 +531,7 @@ etr EVAP::get_vals(){
     d_etr.pw = pw;
     d_etr.rn_d = rn_d;
     d_etr.visc = visc;
+    d_etr.pet_max = pet_max;
     
     return d_etr;
 }

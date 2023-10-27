@@ -52,5 +52,6 @@ struct etr {
     double pw;      // density of water, kg/m^3
     double rn_d;    // daytime net radioation J/m^2
     double visc;    // Viscosity Pa s
+    double pet_max; // maximum (midday) instantaneous evapotranspiration mm/h
 };
 #endif

@@ -74,7 +74,7 @@ SOLAR::SOLAR(double a, double b)
 Class Function Definitions
 /////////////////////////////////////////////////////////////////////
 */
-void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double slop, double asp,double snow, double nd){
+void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double slop, double asp,double snow, double nd, double sw){
     /* ***********************************************************************
     Name:     SOLAR.calculate_daily_fluxes
     Input:    - int, day of year (n)
@@ -89,7 +89,9 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // @TODO: check for erroneous values
     day = n;
-
+     if (sw > 1.0){
+        sw = 1.0;
+    }
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // 1. Calculate number of days in year (kN), days
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,9 +211,12 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // lm with modis  and snotel data, max snow albedo as 0.78
     //double sfc = 0.5935119/(1.0 + exp((-243.1452366 - snow)/173.6612577));
     double sfc =snow/(140.0+snow);
+    //calc albedo as function of soil moisture, 
+    double alb_v = Global::alb_sw-0.17*sw;
     //albedo, assuming max snow albedo as 0.85
     
-	double alb = Global::alb_sw *(1.0-sfc)+sfc*max_alb_snw;
+	//double alb = Global::alb_sw *(1.0-sfc)+sfc*max_alb_snw;
+    double alb = alb_v *(1.0-sfc)+sfc*max_alb_snw;
     if ((sw_in == 0.0) || (hs == 0.0)){
 		rw = (1.0 - alb)*tau*dr*Global::Gsc;
 	} else {
@@ -252,9 +257,11 @@ void SOLAR::calculate_daily_fluxes(int n, int y, double sw_in, double tc, double
     // 14. Calculate mean surface temperature (C) Yang & Roderick (2019) doi:10.1002/qj.3481
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //double LW_in = 
-    ts = tc + 2.517*exp(2.38*tau) + 0.03466 *abs(lat) ;
+    //ts = tc + 2.517*exp(2.38*tau) + 0.03466 *abs(lat) ;
     // empirical fitting Fluxnet
-    //ts = 1.0691*tc + 2.7302*tau - 0.035*abs(lat) + 2.334;
+    ts = 1.0691*tc + 2.7302*tau - 0.035*abs(lat) + 2.334;
+    //max air temeperature
+    //ts = tc/dcos(hs/2);
 
 
 }
@@ -380,7 +387,7 @@ srad SOLAR::get_vals(){
     dsr.hn = hn;        // cross-over hour angle, degrees
     dsr.rn_d = rn_d;    // daytime net radiation, J/m^2
     dsr.rnn_d = rnn_d;  // nighttime net radiation, J/m^2
-    dsr.ts = ts;        // surface temperature, J/m^2
+    dsr.ts = ts;        // surface temperature, C
 
     return dsr;
 }

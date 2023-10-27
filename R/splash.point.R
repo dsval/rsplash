@@ -366,9 +366,9 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 # 09. calc Air entry pressure [mm] from calibrated Saxton and Rawls (2006)
 ######################################################################################## 
 
-moist_fvol33init<-0.278*sand+0.034*clay+0.022*OM-0.018*(sand*OM)-0.027*(clay*OM)-0.584*(sand*clay)+0.078
+moist_fvol33init<-0.278*fsand+0.034*fclay+0.022*fOM-0.018*(fsand*fOM)-0.027*(fclay*fOM)-0.584*(fsand*fclay)+0.078
 moist_fvol33<-moist_fvol33init+(0.636*moist_fvol33init-0.107)
-bub_init<--21.6*sand-27.93*clay-81.97*moist_fvol33+71.12*(sand*moist_fvol33)+8.29*(clay*moist_fvol33)+14.05*(sand*clay)+27.16
+bub_init<--21.6*fsand-27.93*fclay-81.97*moist_fvol33+71.12*(fsand*moist_fvol33)+8.29*(fclay*moist_fvol33)+14.05*(fsand*fclay)+27.16
 bubbling_p<-bub_init+(0.02*bub_init^2-0.113*bub_init-0.7)
 # 101.97162129779 converts from KPa to mmH2O
 bubbling_p<-bubbling_p*-101.97162129779

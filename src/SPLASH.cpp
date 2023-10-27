@@ -184,7 +184,7 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    //double RES = WP/2;
+    //double RES = WP;
     double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -260,6 +260,21 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 1. Calculate evaporative supply rate (sw), mm/h Original
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      
+    double max_sw = 1.0/ pow((1 + pow(AI,6.8681)),0.07956432);
+    // // org splash
+    double sw = ((wn-RES)/(Wmax-RES));
+    //double sw = ((wn)/(Wmax));
+    if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    } else if (sw > 1.0){
+         sw = 1.0;
+    }
+    
     /*
 
    double sw = 0.0;
@@ -397,15 +412,24 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //if (sw < 0.0 || isnan(sw)==1) {
     //    sw = 0.0;
     //}
+    */
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Water supply calc as difference of soil and water potentials mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /*
     
-
-    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow,0.0);
+    evap.calculate_daily_fluxes(1.0, n, y, sw_in, tc, slop, asp,snow,nd);
     etr dn_dumm = evap.get_vals();
-    double pet_d = dn_dumm.pet;
+    //double pet_d = dn_dumm.pet;
     double pw = dn_dumm.pw;
+    visc = dn_dumm.visc;
+    // 5.1.1. correct Ksat for fuid viscosity
+	double int_perm = Ksat/Global::fluidity;
+	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
+    // soil conductivity unsaturated [mm/h]
+    double Kunsat = Ksat_visc * pow((theta_i/theta_s),(3.0+(2.0/lambda)));
+    // maximum (midday) potential evapotranspiration mm/h
+    double pet_max = dn_dumm.pet_max;
         
     //9.1. Soil matric potential to MPa
     double psi_m_mpa = psi_m * 0.00000980665;
@@ -417,26 +441,56 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     //double Rp = (-0.033-psi_l_c)/pet_d;
 
     // //9.3. Leaf water potential assuming RWC at 98% [MPa]
-    double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
-    //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    double Rp = (0.02-psi_l)/pet_d;
+    double psi_l = ((0.082*(278.15+tc)*log(0.95))/(v_m))*0.101325;
+    //double psi_l = -1*pow(-4*psi_m_mpa,0.5);
+    //9.4. Minimum Resistance soil to leaf asuming SATURATION and Leaf water potential at critical leaf RWC [MPa] 
+    // assuming path water 2 m, then water head is [MPa]
+    //double h_path = pw*Global::G*2.0*1E-6;
+    ////////////////////////////////////////////////////////
+    ///calc potential conductivity
+    // total max conductivity [mm/h]=  root_leaf K + soilK
+    //double K_T = pet_max * h_path/(-1.0*psi_l); 
+    //vertical hidraulic gradient at saturation
+    //double up_hg = (0.033/h_path) - 1.0;
+    //double K_T = pet_max/up_hg ; 
+    // maximum root to leaf conductivity [mm/h]
+    //double K_RL = (K_T*Ksat_visc)/(Ksat_visc-K_T);
+    // correct K_RL for viscosity
+    //double K_RL_cte = K_RL * visc;
+    ////////////////////////////////////////////////////////
+    ///calc real conductivity k_plant=0.5^(((-6:0)/-4)^3)
+    //double KRL_h = K_RL* pow(0.5,pow(psi_l/-4,3));
+    //double KT_real = (K_RL*Kunsat)/(K_RL+Kunsat);
+    //total resistance
+    //double Rp = (-1.0*psi_l)/pet_max;
+    
     // dimensioles Psi_s eq. 9.17 Campbell, 1998 
     double psi_ratio = psi_m_mpa/psi_l;
         
-    //9.5. water supply mm/day
-    sw = (psi_m_mpa-psi_l)/Rp;
-    //sw = (1.0 - (2.0 * psi_ratio/3.0))* pet_d;
+    //9.5. water supply mm/h
+    //double sw =  (psi_m_mpa-psi_l)/Rp;
+    //9.5. water supply mm/h
+    //double sw =  KT_real * (psi_m_mpa-psi_l)/h_path;
+    //double sw =  KT_real * ( ((psi_m_mpa-psi_l)/h_path)- 1.0);
+    ///use sw to input in et module
+    //double sw = psi_m_mpa;
+
+    double sw = (1.0 - (1/3)*(psi_ratio))*pet_max;
+    
     if (sw < 0.0 || isnan(sw)==1) {
           sw = 0.0;
     }
+    //double max_sw = 0.7/ pow((1 + pow(AI,6.8681)),0.07956432);
+    //sw *= max_sw;
     */
-
-
+   //////////////////// package
+   
+    /*
     double max_sw = 1.0/ pow((1 + pow(AI,6.8681)),0.07956432);
    
 
     double sw = 0.0;
-    
+    double upt = 0.0 ;
 
     // when the soil depth exeeds 2m:
      if (depth>=6.0){
@@ -445,18 +499,53 @@ void SPLASH::quick_run(int n, int y, double wn, double sw_in, double tc,
     } else{
     // bedrock < 2 m    
               
-        sw = ((wn-RES)/(Wmax-RES));
+        //upt = ((wn-RES)/(Wmax-RES));
+       upt = ((wn-WP)/(SAT-WP));
+        sw = 1.0 - pow(1.0 + 0.5*upt,-1.0/lambda);
     }
-       
+    //sw *= max_sw;
+    sw *= Global::Cw;
     if (sw < 0.0 || isnan(sw)==1) {
          sw = 0.0;
-     } else if (sw > 1.0){
-         sw = 1.0;
-     }
+     } 
+     
+     //else if (sw > max_sw){
+    //     sw = max_sw;
+     //}
     
-    sw *= max_sw;
+    */
+    
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // new theory combined
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /*
+    //parameters aridity ceiling function
+    double m_AI = 6.8681;
+    double n_AI = 0.07956432;
+   // double max_sw = 1.0/ pow((1 + pow(AI,m_AI)),n_AI);
+    ///shape limiting function
+    double g_AI = pow( 1 - pow(1 + pow(AI,m_AI),-1*n_AI), -1.0*lambda)- 1.0;
+    // available water content in fraction
+    double awc = (wn)/(Wmax);
+    ///  fix bounds
+    if (awc < 0.0 || isnan(awc)==1) {
+         awc = 0.0;
+     } 
+     //else if (awc > 1.0){
+    //     awc = 1.0;
+     //}
+    // calc fraction of the water uptake
+    double sw = 1.0 - pow(1 + g_AI*awc, -1.0/lambda); 
+    
+    if (sw < 0.0 || isnan(sw)==1) {
+         sw = 0.0;
 
-
+     } 
+     //else if (sw > max_sw){
+     //    sw = max_sw;
+     //}
+    */
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -868,7 +957,7 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    //double RES = WP/2;
+    //double RES = WP;
     double RES = soil_info[7];
     //upslope area
     double Au = soil_info[8];
@@ -942,6 +1031,22 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
    // ####################################################################################################################
     // 03. calculate supply rate (sw)
     // ####################################################################################################################
+   
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // 1. Calculate evaporative supply rate (sw), mm/h Original
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+    double max_sw = 1.0/ pow((1 + pow(AI,6.8681)),0.07956432);
+    // // org splash
+    double sw = ((wn-RES)/(Wmax-RES));
+    //double sw = ((wn)/(Wmax));
+     if (sw < 0.0 || isnan(sw)==1) {
+          sw = 0.0;
+    } else if (sw > 1.0){
+         sw = 1.0;
+    }
+    
     /*
     double sw = 0.0;
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -978,15 +1083,23 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     } else if (sw > Global::Cw){
           sw = Global::Cw;
     }
-    
+    */
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Water supply calc as difference of soil and water potentials mm
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    evap.calculate_daily_fluxes(0.0, n, y, sw_in, tc, slop, asp,snow,0.0);
+    /*
+    evap.calculate_daily_fluxes(1.0, n, y, sw_in, tc, slop, asp,snow,0.0);
     etr dn_dumm = evap.get_vals();
     double pet_d = dn_dumm.pet;
     double pw = dn_dumm.pw;
+    visc = dn_dumm.visc;
+    // 5.1.1. correct Ksat for fuid viscosity
+	double int_perm = Ksat/Global::fluidity;
+	double Ksat_visc = int_perm*((pw*Global::G)/visc)*3.6;
+    // soil conductivity unsaturated [mm/h]
+    double Kunsat = Ksat_visc * pow((theta_i/theta_s),(3.0+(2.0/lambda)));
+    // maximum (midday) potential evapotranspiration mm/h
+    double pet_max = dn_dumm.pet_max;
         
     //9.1. Soil matric potential to MPa
     double psi_m_mpa = psi_m * 0.00000980665;
@@ -998,25 +1111,57 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
     //double Rp = (-0.033-psi_l_c)/pet_d;
 
     // //9.3. Leaf water potential assuming RWC at 98% [MPa]
-    double psi_l = ((0.082*(273.15+tc)*log(0.98))/(v_m))*0.101325;
-    //9.4. Minimum Resistance soil to leaf asuming field capacity and Leaf water potential at critical leaf RWC [MPa] 
-    double Rp = (0.02-psi_l)/pet_d;
+    double psi_l = ((0.082*(278.15+tc)*log(0.95))/(v_m))*0.101325;
+    //double psi_l = -1*pow(-4*psi_m_mpa,0.5);
+    //9.4. Minimum Resistance soil to leaf asuming SATURATION and Leaf water potential at critical leaf RWC [MPa] 
+    // assuming path water 2 m, then water head is [MPa]
+    //double h_path = pw*Global::G*2.0*1E-6;
+    ////////////////////////////////////////////////////////
+    ///calc potential conductivity
+    // total max conductivity [mm/h]=  root_leaf K + soilK
+    //double K_T = pet_max * h_path/(-1.0*psi_l); 
+    //vertical hidraulic gradient at saturation
+    //double up_hg = (0.033/h_path) - 1.0;
+    //double K_T = pet_max/up_hg ; 
+    // maximum root to leaf conductivity [mm/h]
+    //double K_RL = (K_T*Ksat_visc)/(Ksat_visc-K_T);
+    // correct K_RL for viscosity
+    //double K_RL_cte = K_RL * visc;
+    ////////////////////////////////////////////////////////
+    ///calc real conductivity k_plant=0.5^(((-6:0)/-4)^3)
+    //double KRL_h = K_RL* pow(0.5,pow(psi_l/-4,3));
+    //double KT_real = (K_RL*Kunsat)/(K_RL+Kunsat);
+    //total resistance
+    //double Rp = (-1.0*psi_l)/pet_max;
+    
     // dimensioles Psi_s eq. 9.17 Campbell, 1998 
     double psi_ratio = psi_m_mpa/psi_l;
         
-    //9.5. water supply mm/day
-    sw = (psi_m_mpa-psi_l)/Rp;
-    //sw = (1.0 - (2.0 * psi_ratio/3.0))*pet_d;
+    //9.5. water supply mm/h
+    //double sw =  (psi_m_mpa-psi_l)/Rp;
+    //9.5. water supply mm/h
+    //double sw =  KT_real * (psi_m_mpa-psi_l)/h_path;
+    //double sw =  KT_real * ( ((psi_m_mpa-psi_l)/h_path)- 1.0);
+    ///use sw to input in et module
+    //double sw = psi_m_mpa;
+
+    double sw = (1.0 - (1/3)*(psi_ratio))*pet_max;
+    
     if (sw < 0.0 || isnan(sw)==1) {
           sw = 0.0;
     }
+    //double max_sw = 0.7/ pow((1 + pow(AI,6.8681)),0.07956432);
+    //sw *= max_sw;
     */
+    
+     //////////////////// package
+    /*
     
     double max_sw = 1.0/ pow((1 + pow(AI,6.8681)),0.07956432);
    
 
     double sw = 0.0;
-    
+    double upt = 0.0 ;
 
     // when the soil depth exeeds 2m:
      if (depth>=6.0){
@@ -1024,18 +1169,54 @@ void SPLASH::run_one_day(int n, int y, double wn, double sw_in, double tc,
         sw = ((w_z-RES_z)/(Wmax-RES_z));
     } else{
     // bedrock < 2 m    
-              
-        sw = ((wn-RES)/(Wmax-RES));
+        //upt = ((wn-RES)/(Wmax-RES));
+        upt = ((wn-WP)/(SAT-WP));
+        sw = 1.0 - pow(1.0 + 0.5*upt,-1.0/lambda);
     }
+    //sw *= max_sw;
+    sw *= Global::Cw;
        
     if (sw < 0.0 || isnan(sw)==1) {
          sw = 0.0;
-     } else if (sw > 1.0){
-         sw = 1.0;
-     }
+     } 
+     //else if (sw > max_sw){
+    //     sw = max_sw;
+    // }
+    */
     
-    sw *= max_sw;
+    
+    
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // new theory combined
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    /*
+    //parameters aridity ceiling function
+    double m_AI = 6.8681;
+    double n_AI = 0.07956432;
+    //double max_sw = 1.0/ pow((1 + pow(AI,m_AI)),n_AI);
+    ///shape limiting function
+    double g_AI = pow( 1 - pow(1 + pow(AI,m_AI),-1*n_AI), -1.0*lambda)- 1.0;
+    // available water content in fraction
+    double awc = (wn)/(Wmax);
+    ///  fix bounds
+    if (awc < 0.0 || isnan(awc)==1) {
+         awc = 0.0;
+     } 
+     //else if (awc > 1.0){
+     //    awc = 1.0;
+    // }
+    // calc fraction of the water uptake
+    double sw = 1.0 - pow(1 + g_AI*awc, -1.0/lambda); 
+    
+    if (sw < 0.0 || isnan(sw)==1) {
+         sw = 0.0;
 
+     } 
+     
+     //else if (sw > max_sw){
+     //    sw = max_sw;
+     //}
+    */
     // ####################################################################################################################
     // 04. Snowpack and energy Balances
     // ####################################################################################################################  
@@ -1438,7 +1619,7 @@ List SPLASH::spin_up(int n, int y, vector<double> &sw_in, vector <double> &tair,
     //bubbling pressure/capillarity fringe (mm)
     double bub_press = soil_info[6];
     //residual water content, test as WP?
-    //double RES = WP/2;
+    //double RES = WP;
     double RES = soil_info[7];
 
     double theta_s = SAT/(depth *1000.0);

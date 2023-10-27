@@ -81,6 +81,7 @@ class EVAP {
         double snowmelt;           // daily snowmelt mm/d
         double sublimation;        // daily sublimation mm/d
         double visc;               // viscosity Pa s
+        double pet_max; // maximum (midday) instantaneous evapotranspiration mm/h
         srad d_sr;                 // daily srad struct
         etr d_etr;                 // daily etr struct
 
