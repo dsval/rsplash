@@ -3,7 +3,7 @@
 #' R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 #' 
 #' @param   sw_in Incoming shortwave solar radiation (W m-2), Raster* object of monthly or daily averages with z time dimension.
-#' @param   tc Air temperature (°C), same dimensions as sw_in
+#' @param   tc Air temperature (ï¿½C), same dimensions as sw_in
 #' @param   pn Precipitation (mm), same dimensions as sw_in
 #' @param   elev Elevation (m.a.s.l)
 #' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3) and depth(m)
@@ -31,7 +31,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###########################################################################
 	on.exit(endCluster())
 	clcheck<-try(getCluster(), silent=TRUE)
-	if(class(clcheck)=="try-error"){
+	if(class(clcheck)[1]=="try-error"){
 		# If no cluster is initialized, assume only one core will do the calculations, beginCluster(1) saved me the time of coding serial versions of the functions
 		beginCluster(1,'SOCK')
 		message('Only using one core, use first beginCluster(ncores) if you want to run splash in parallel!!')
