@@ -3,11 +3,11 @@
 #' R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 #' 
 #' @param   sw_in Incoming shortwave solar radiation (W m-2), timeseries object of monthly or daily averages.
-#' @param   tc Air temperature (�C), same timestep as sw_in
+#' @param   tc Air temperature (°C), same timestep as sw_in
 #' @param   pn Precipitation (mm), same timestep as sw_in
 #' @param   elev Elevation (m.a.s.l)
-#' @param   slop Terrain feature: slope inclination (�)
-#' @param   asp Terrain feature: slope orientation (�), standard clockwise from 0.0� North
+#' @param   slop Terrain feature: slope inclination (°)
+#' @param   asp Terrain feature: slope orientation (°), standard clockwise from 0.0° North
 #' @param   soil_data Soil data organized as a vector in the way: c(sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3))
 #' @return a time series matrix including:
 #' \itemize{
@@ -252,7 +252,7 @@ soil_hydro<-function(sand, clay, OM, fgravel=0,bd=NA, ...) {
 	#           by Texture and Organic Matter for Hydrologic Solutions. 
 	#           Soil Sci. Soc. Am. J. 70, 1569. doi:10.2136/sssaj2005.0117
 	#		  Balland, V., Pollacco, J.A.P., Arp, P.A., 2008. Modeling soil hydraulic properties for 
-	#		  a wide range of soil conditions. Ecol. Modell. 219, 300�316. doi:10.1016/j.ecolmodel.2008.07.009
+	#		  a wide range of soil conditions. Ecol. Modell. 219, 300-316. doi:10.1016/j.ecolmodel.2008.07.009
 	# ************************************************************************
 	results<-list()
 	########################################################################################
@@ -524,7 +524,7 @@ frain_func<-function(tc,Tt,Tr,time_index){
 	# Inputs:   
 	#               tc ..... double, air daily temperature C
 	#			 Tt... double, parameter threshold temperature,where 50% of precipitation falls as rain
-	#			 Tr... double, TR is range of temperatures where both rainfall and snowfall can occur, in �C, typically around 13 �C
+	#			 Tr... double, TR is range of temperatures where both rainfall and snowfall can occur, in °C, typically around 13 °C
 	#               y ....... year
 	# Returns:  fraction of the precipitaion falling as rain
 	# Features: calculates the fraction of the precipitaion falling as rain, accounting for monthly variations of the parameters 
@@ -568,7 +568,7 @@ snowfall_prob<-function(tc,lat,elev){
 	
 	# Features: calculates the snowfall occurrence probability
 	# Ref:      Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., 2018. Spatial variation of the 
-	# 		  rain-snow temperature threshold across the Northern Hemisphere. Nat. Commun. 9, 1�9. doi:10.1038/s41467-018-03629-7
+	# 		  rain-snow temperature threshold across the Northern Hemisphere. Nat. Commun. 9, 1-9. doi:10.1038/s41467-018-03629-7
 	# ************************************************************************
 	# calibration set
 	#p_snow<-1/(1+exp(-0.5827+1.319*as.numeric(tc)-as.numeric(elev)*4.18E-4-abs(as.numeric(lat))*1.140E-2))

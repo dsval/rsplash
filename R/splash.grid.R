@@ -3,7 +3,7 @@
 #' R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 #' 
 #' @param   sw_in Incoming shortwave solar radiation (W m-2), Raster* object of monthly or daily averages with z time dimension.
-#' @param   tc Air temperature (�C), same dimensions as sw_in
+#' @param   tc Air temperature (°C), same dimensions as sw_in
 #' @param   pn Precipitation (mm), same dimensions as sw_in
 #' @param   elev Elevation (m.a.s.l)
 #' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3) and depth(m)
