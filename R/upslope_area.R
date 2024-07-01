@@ -1,14 +1,12 @@
 #' upslope_area
 #'
 #' Computes n cells draining in/out and the contributing area per pixel in m2 using topmodel for small areas or Taudem for large, corrections acording to latitude done by raster::area
-#' @param   dem
+#' @param dem a [RasterLayer][raster::Raster-class] Digital Elevation Model model passed to [topmodel::sinkfill()]
 #' @return a RasterStack with the contributing area per pixel, number of cells draining in, and number of cells draining out
 #' @import topmodel
 #' @import raster 
 #' @keywords contributing area
 #' @export
-#' @examples
-#' splash.grid()
 upslope_area<-function(dem,resolution){
 
 	resolution<-cellStats(resolution, stat='mean', na.rm=TRUE)

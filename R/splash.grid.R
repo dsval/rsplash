@@ -3,13 +3,16 @@
 #' R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 #' 
 #' @param   sw_in Incoming shortwave solar radiation (W m-2), Raster* object of monthly or daily averages with z time dimension.
-#' @param   tc Air temperature (�C), same dimensions as sw_in
+#' @param   tc Air temperature (°C), same dimensions as sw_in
 #' @param   pn Precipitation (mm), same dimensions as sw_in
 #' @param   elev Elevation (m.a.s.l)
 #' @param   soil Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3) and depth(m)
 #' @param   outdir (optional) directory path where the results will be saved, the working directory by default
 #' @param   tmpdir (optional) directory path where the temporary files will be saved
-#' @param   sim.control (optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.
+#' @param   sim.control (optional) list including options to control the output:
+#' - monthly_out = TRUE by default; daily if FALSE.
+#' - inmem = FALSE by default; writes all the results to the disk by chunks to save RAM,
+#'       sacrificing speed.
 #' @return a list of rasterBricks objects with z time dimension, all of them saved to outdir as netcdf files:
 #' \itemize{
 #'         \item \eqn{wn}: Soil water content (mm) within the first 2 m of depth.
@@ -24,7 +27,21 @@
 #' @keywords splash, evapotranspiration, soil moisture
 #' @export
 #' @examples
-#' splash.grid(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+#' \dontrun{data(SA_cru)
+#' splash.grid(
+#'   sw_in = SA_cru$sw_in,
+#'   tc = SA_cru$tc,
+#'   pn = SA_cru$pn,
+#'   elev = SA_cru$elev,
+#'   soil = SA_cru$soil,
+#'   outdir = getwd(),
+#'   tmpdir = dirname(raster::rasterTmpFile()),
+#'   sim.control = list(
+#'     monthly_out = FALSE,
+#'     inmem = TRUE
+#'   )
+#' )}
+
 splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(rasterTmpFile()),sim.control=list(monthly_out=TRUE,inmem=FALSE)){
 	###########################################################################
 	# 00. Check if parallel computation is required by the user and if the dimensions of the raster objects match
@@ -267,7 +284,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		bs <- blockSize(sw_in, minblocks=nodes*10)
 	}
 	########################### export the vaiables to the nodes 
-	parallel:::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','resolution','Au','ztime','bs','splash.point','sim.control'),envir=environment()) 
+	parallel::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','resolution','Au','ztime','bs','splash.point','sim.control'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 3)
 	#cat("computing...","\n")
@@ -358,7 +375,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###############################################################################################	
 	for (i in 1:bs$n) {
 		
-		d <- parallel:::recvOneData(cl)
+		d <- parallel::recvOneData(cl)
 		# error?
 		if (! d$value$success) {
 			stop('cluster error:',"\n",d$value$value)

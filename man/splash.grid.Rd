@@ -4,43 +4,68 @@
 \alias{splash.grid}
 \title{Simple process-led algorithms for simulating habitats (SPLASH v.2.0)}
 \usage{
-splash.grid(sw_in, tc, pn, elev, soil, outdir = getwd(),
-  tmpdir = dirname(rasterTmpFile()), sim.control = list(output.mode =
-  "monthly", inmem = FALSE))
+splash.grid(
+  sw_in,
+  tc,
+  pn,
+  elev,
+  soil,
+  outdir = getwd(),
+  tmpdir = dirname(rasterTmpFile()),
+  sim.control = list(monthly_out = TRUE, inmem = FALSE)
+)
 }
 \arguments{
 \item{sw_in}{Incoming shortwave solar radiation (W m-2), Raster* object of monthly or daily averages with z time dimension.}
 
-\item{tc}{Air temperature (戼㸰C), same dimensions as sw_in}
+\item{tc}{Air temperature (°C), same dimensions as sw_in}
 
 \item{pn}{Precipitation (mm), same dimensions as sw_in}
 
 \item{elev}{Elevation (m.a.s.l)}
 
-\item{soil}{Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3)}
+\item{soil}{Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3) and depth(m)}
 
-\item{outdir}{(optional) directory path where the results will be saved, working directory by default}
+\item{outdir}{(optional) directory path where the results will be saved, the working directory by default}
 
-\item{tmpdir}{(optional) directory path where the temporary files will be saved, default temporary directory by default}
+\item{tmpdir}{(optional) directory path where the temporary files will be saved}
 
-\item{sim.control}{(optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.}
+\item{sim.control}{(optional) list including options to control the output:
+\itemize{
+\item monthly_out = TRUE by default; daily if FALSE.
+\item inmem = FALSE by default; writes all the results to the disk by chunks to save RAM,
+sacrificing speed.
+}}
 }
 \value{
 a list of rasterBricks objects with z time dimension, all of them saved to outdir as netcdf files:
 \itemize{
-        \item \eqn{W_n}: Soil water content (mm) within the first 2 m of depth.
-        \item \eqn{ro}: Runoff (mm d-1).
-        \item \eqn{pet}: Potential evapotranspiration (mm d-1).
-        \item \eqn{aet}: Actual evapotranspiration (mm d-1).
-        \item \eqn{snow}: Snow water equivalent (mm).
-        \item \eqn{bflow}: Lateral flow (mm d-1).
+\item \eqn{wn}: Soil water content (mm) within the first 2 m of depth.
+\item \eqn{ro}: Runoff (mm d-1).
+\item \eqn{pet}: Potential evapotranspiration (mm d-1).
+\item \eqn{aet}: Actual evapotranspiration (mm d-1).
+\item \eqn{snow}: Snow water equivalent (mm).
+\item \eqn{bflow}: Lateral flow (mm d-1).
 }
 }
 \description{
 R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 }
 \examples{
-splash.grid(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+\dontrun{data(SA_cru)
+splash.grid(
+  sw_in = SA_cru$sw_in,
+  tc = SA_cru$tc,
+  pn = SA_cru$pn,
+  elev = SA_cru$elev,
+  soil = SA_cru$soil,
+  outdir = getwd(),
+  tmpdir = dirname(raster::rasterTmpFile()),
+  sim.control = list(
+    monthly_out = FALSE,
+    inmem = TRUE
+  )
+)}
 }
 \keyword{evapotranspiration,}
 \keyword{moisture}

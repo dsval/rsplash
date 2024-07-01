@@ -65,3 +65,7 @@ addLegend(legend.loc = "topright", legend.names =c('SWC obs.','SWC sim.'),col=c(
 Sandoval, D., Prentice, I. C. and Nóbrega R. (in progress). Simple process-led algorithms for simulating habitats (SPLASH v.2.0): calibration-free calculations of water and energy fluxes 
 
 Davis, T.W., Prentice, I.C., Stocker, B.D., Thomas, R.T., Whitley, R.J., Wang, H., Evans, B.J., Gallego-Sala, A. V., Sykes, M.T., Cramer, W., 2017. Simple process-led algorithms for simulating habitats (SPLASH v.1.0): robust indices of radiation, evapotranspiration and plant-available moisture. Geosci. Model Dev. 10, 689–708. doi:10.5194/gmd-10-689-2017
+
+## Development Setup
+
+If you want to work on this codebase using Visual Studio Code, some setup files are included. Assuming you install the extensions `REditorSupport.r` and `ms-vscode.cpptools-extension-pack`, you should get a functioning environment set up and running by executing `renv::init()` and choosing the "explicit" option, i.e., reading package dependencies from the package `DESCRIPTION`.

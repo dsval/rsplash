@@ -14,42 +14,58 @@ splash.point(
   asp = 0,
   soil_data,
   Au = 0,
-  resolution = 250
+  resolution = 250,
+  time_index = NULL,
+  monthly_out = FALSE,
+  ts_out = TRUE,
+  verbose = TRUE
 )
 }
 \arguments{
 \item{sw_in}{Incoming shortwave solar radiation (W m-2), timeseries object of monthly or daily averages.}
 
-\item{tc}{Air temperature (戼㸰C), same timestep as sw_in}
+\item{tc}{Air temperature (°C), same timestep as sw_in}
 
 \item{pn}{Precipitation (mm), same timestep as sw_in}
 
 \item{elev}{Elevation (m.a.s.l)}
 
-\item{slop}{Terrain feature: slope inclination (戼㸰)}
+\item{slop}{Terrain feature: slope inclination (°)}
 
-\item{asp}{Terrain feature: slope orientation (戼㸰), standard clockwise from 0.0戼㸰 North}
+\item{asp}{Terrain feature: slope orientation (°), standard clockwise from 0.0° North}
 
 \item{soil_data}{Soil data organized as a vector in the way: c(sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3))}
 }
 \value{
 a time series matrix including:
 \itemize{
-        \item \eqn{wn}: Soil water content within the first 2m of depth (mm).
-        \item \eqn{ro}: Runoff (mm d-1).
-        \item \eqn{pet}: Potential evapotranspiration (mm d-1).
-        \item \eqn{aet}: Actual evapotranspiration (mm d-1).
-        \item \eqn{snow}: Snow water equivalent (mm).
-        \item \eqn{cond}: Condensation (mm d-1).
-        \item \eqn{bflow}: Lateral flow (mm d-1).
-        \item \eqn{netr}: Daytime net radiation (MJ d-1).
+\item \eqn{wn}: Soil water content within the first 2m of depth (mm).
+\item \eqn{ro}: Runoff (mm d-1).
+\item \eqn{pet}: Potential evapotranspiration (mm d-1).
+\item \eqn{aet}: Actual evapotranspiration (mm d-1).
+\item \eqn{snow}: Snow water equivalent (mm).
+\item \eqn{cond}: Condensation (mm d-1).
+\item \eqn{bflow}: Lateral flow (mm d-1).
+\item \eqn{netr}: Daytime net radiation (MJ d-1).
 }
 }
 \description{
 R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 }
 \examples{
-splash.point(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+data(Bourne)
+splash.point(
+  sw_in = Bourne$forcing$sw_in,
+  tc = Bourne$forcing$Ta,
+  pn = Bourne$forcing$P,
+  lat = Bourne$md$latitude,
+  elev = Bourne$md$elev_m,
+  slop = Bourne$md$slop_250m,
+  asp = Bourne$md$asp_250m,
+  soil_data = Bourne$soil,
+  Au = Bourne$md$Aups_250m,
+  resolution = 250.0
+)
 }
 \keyword{evapotranspiration,}
 \keyword{moisture}

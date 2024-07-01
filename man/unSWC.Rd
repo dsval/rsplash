@@ -4,10 +4,10 @@
 \alias{unSWC}
 \title{unsSWC}
 \usage{
-unSWC(soil_data, uns_depth, wn, units = "mm")
+unSWC(soil_data, uns_depth, wn)
 }
 \arguments{
-\item{soil_data, }{vector as retrieved from splashTools::getSoilNRCS() or splashTools::getSoilSite()}
+\item{soil_data, }{vector as retrieved from \code{\link[splashTools:getSoilNRCS]{splashTools::getSoilNRCS()}} or \code{\link[splashTools:getSoilSite]{splashTools::getSoilSite()}}}
 
 \item{uns_depth, }{maximum depth to calculate the accumulated water content in (m)}
 
@@ -17,8 +17,5 @@ unSWC(soil_data, uns_depth, wn, units = "mm")
 }
 \description{
 Estimates water content using an analytca integral of the profile described by Brooks and Corey 1964 and calculates depth to water table if there is any
-}
-\examples{
-unSWC()
 }
 \keyword{splashTools}
