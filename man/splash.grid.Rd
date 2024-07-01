@@ -30,7 +30,12 @@ splash.grid(
 
 \item{tmpdir}{(optional) directory path where the temporary files will be saved}
 
-\item{sim.control}{(optional) list including options to control the output: output.mode="monthly" by default, "daily" also available, inmem=FALSE by default write all the results to the disk by chunks to save RAM, sacrificing speed.}
+\item{sim.control}{(optional) list including options to control the output:
+\itemize{
+\item monthly_out = TRUE by default; daily if FALSE.
+\item inmem = FALSE by default; writes all the results to the disk by chunks to save RAM,
+sacrificing speed.
+}}
 }
 \value{
 a list of rasterBricks objects with z time dimension, all of them saved to outdir as netcdf files:
@@ -47,7 +52,20 @@ a list of rasterBricks objects with z time dimension, all of them saved to outdi
 R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 }
 \examples{
-splash.grid(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+\dontrun{data(SA_cru)
+splash.grid(
+  sw_in = SA_cru$sw_in,
+  tc = SA_cru$tc,
+  pn = SA_cru$pn,
+  elev = SA_cru$elev,
+  soil = SA_cru$soil,
+  outdir = getwd(),
+  tmpdir = dirname(raster::rasterTmpFile()),
+  sim.control = list(
+    monthly_out = FALSE,
+    inmem = TRUE
+  )
+)}
 }
 \keyword{evapotranspiration,}
 \keyword{moisture}

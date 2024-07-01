@@ -8,8 +8,6 @@
 #' @import xts
 #' @keywords splashTools
 #' @export
-#' @examples
-#' unSWC()
 
 unSWC<-function(soil_data,uns_depth,wn){
 	# test

@@ -53,7 +53,19 @@ a time series matrix including:
 R/C++ implementation of the SPLASH v.2.0 algorithm (Davis et al., 2017; Sandoval et al., in prep.).
 }
 \examples{
-splash.point(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+data(Bourne)
+splash.point(
+  sw_in = Bourne$forcing$sw_in,
+  tc = Bourne$forcing$Ta,
+  pn = Bourne$forcing$P,
+  lat = Bourne$md$latitude,
+  elev = Bourne$md$elev_m,
+  slop = Bourne$md$slop_250m,
+  asp = Bourne$md$asp_250m,
+  soil_data = Bourne$soil,
+  Au = Bourne$md$Aups_250m,
+  resolution = 250.0
+)
 }
 \keyword{evapotranspiration,}
 \keyword{moisture}

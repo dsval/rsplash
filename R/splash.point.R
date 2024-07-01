@@ -25,7 +25,20 @@
 #' @keywords splash, evapotranspiration, soil moisture
 #' @export
 #' @examples
-#' splash.point(sw_in=200, tc=15, pn=10, lat=44,elev=1800,slop=10,asp=270,soil_data=c(sand=44,clay=2,OM=6,fgravel=12))
+#' data(Bourne)
+#' splash.point(
+#'   sw_in = Bourne$forcing$sw_in,
+#'   tc = Bourne$forcing$Ta,
+#'   pn = Bourne$forcing$P,
+#'   lat = Bourne$md$latitude,
+#'   elev = Bourne$md$elev_m,
+#'   slop = Bourne$md$slop_250m,
+#'   asp = Bourne$md$asp_250m,
+#'   soil_data = Bourne$soil,
+#'   Au = Bourne$md$Aups_250m,
+#'   resolution = 250.0
+#' )
+
 splash.point<-function(sw_in, tc, pn, lat,elev,slop=0,asp=0,soil_data,Au=0,resolution=250,time_index=NULL,monthly_out=FALSE,ts_out=TRUE,verbose=TRUE){
 	###########################################################################
 	# 010. Check time info

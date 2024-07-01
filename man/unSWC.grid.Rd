@@ -16,8 +16,6 @@ unSWC.grid(soil_data, uns_depth, wn, d_name, outdir = getwd())
 \item{outdir, }{directory where to save the files}
 }
 \description{
-\examples{
-unSWC()
 Estimates water content in the unsaturated part of the profile using an analytical integral of the eqn. described by Brooks and Corey 1964 and calculates depth to water table if there is any (*experimental)
 }
 \keyword{splashTools}

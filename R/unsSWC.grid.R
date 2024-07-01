@@ -8,8 +8,6 @@
 #' @import raster
 #' @keywords splashTools
 #' @export
-#' @examples
-#' unSWC()
 
 unSWC.grid<-function(soil_data,uns_depth,wn,d_name ,outdir=getwd()){
 #########################################################################

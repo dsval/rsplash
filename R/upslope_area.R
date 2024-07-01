@@ -7,8 +7,6 @@
 #' @import raster 
 #' @keywords contributing area
 #' @export
-#' @examples
-#' splash.grid()
 upslope_area<-function(dem,resolution){
 
 	resolution<-cellStats(resolution, stat='mean', na.rm=TRUE)
