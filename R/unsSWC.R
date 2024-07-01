@@ -1,7 +1,7 @@
 #' unsSWC
 #'
 #' Estimates water content using an analytca integral of the profile described by Brooks and Corey 1964 and calculates depth to water table if there is any
-#' @param  soil_data, vector as retrieved from splashTools::getSoilNRCS() or splashTools::getSoilSite()
+#' @param  soil_data, vector as retrieved from [splashTools::getSoilNRCS()] or [splashTools::getSoilSite()]
 #' @param  uns_depth, maximum depth to calculate the accumulated water content in (m)
 #' @param  wn, xts object, total water content of the profile from surface to bedrock (m)
 #' @param  ouputdir, directory where to save the files

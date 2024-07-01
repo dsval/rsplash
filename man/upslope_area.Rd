@@ -4,19 +4,16 @@
 \alias{upslope_area}
 \title{upslope_area}
 \usage{
-upslope_area(dem)
+upslope_area(dem, resolution)
 }
 \arguments{
-\item{dem}{}
+\item{dem}{a \link[raster:Raster-classes]{RasterLayer} Digital Elevation Model model passed to \code{\link[topmodel:sinkfill]{topmodel::sinkfill()}}}
 }
 \value{
 a RasterStack with the contributing area per pixel, number of cells draining in, and number of cells draining out
 }
 \description{
-Computes the upslope area in m2 using topmodel for small areas or Taudem for large, corrections acording to latitude done by raster::area
-}
-\examples{
-splash.grid()
+Computes n cells draining in/out and the contributing area per pixel in m2 using topmodel for small areas or Taudem for large, corrections acording to latitude done by raster::area
 }
 \keyword{area}
 \keyword{contributing}

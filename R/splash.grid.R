@@ -267,7 +267,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 		bs <- blockSize(sw_in, minblocks=nodes*10)
 	}
 	########################### export the vaiables to the nodes 
-	parallel:::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','resolution','Au','ztime','bs','splash.point','sim.control'),envir=environment()) 
+	parallel::clusterExport(cl, c("sw_in","tc","pn","elev","lat","terraines",'soil','resolution','Au','ztime','bs','splash.point','sim.control'),envir=environment()) 
 	pb <- pbCreate(bs$n)
 	pb <- txtProgressBar(min=1,max = max(bs$n,2), style = 3)
 	#cat("computing...","\n")
@@ -358,7 +358,7 @@ splash.grid<-function(sw_in, tc, pn, elev, soil, outdir=getwd(),tmpdir=dirname(r
 	###############################################################################################	
 	for (i in 1:bs$n) {
 		
-		d <- parallel:::recvOneData(cl)
+		d <- parallel::recvOneData(cl)
 		# error?
 		if (! d$value$success) {
 			stop('cluster error:',"\n",d$value$value)

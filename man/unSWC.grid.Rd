@@ -4,7 +4,7 @@
 \alias{unSWC.grid}
 \title{unsSWC.grid}
 \usage{
-unSWC.grid(soil_data, uns_depth, wn)
+unSWC.grid(soil_data, uns_depth, wn, d_name, outdir = getwd())
 }
 \arguments{
 \item{soil_data, }{Raster* object with the layers organized as sand(perc),clay(perc),organic matter(perc),coarse-fragments-fraction(perc), bulk density(g cm-3)}
@@ -13,12 +13,11 @@ unSWC.grid(soil_data, uns_depth, wn)
 
 \item{wn, }{Raster* object, total water content of the profile from surface to bedrock (m)}
 
-\item{ouputdir, }{directory where to save the files}
+\item{outdir, }{directory where to save the files}
 }
 \description{
-Estimates water content using an analytca integral of the profile described by Brooks and Corey 1964 and calculates depth to water table if there is any
-}
 \examples{
 unSWC()
+Estimates water content in the unsaturated part of the profile using an analytical integral of the eqn. described by Brooks and Corey 1964 and calculates depth to water table if there is any (*experimental)
 }
 \keyword{splashTools}

@@ -2,12 +2,27 @@ Package: rsplash
 Type: Package
 Title: Simple Process-led Algorithms for Simulating Habitats v2.0
 Version: 1.0
+Encoding: UTF-8
 Date: 2022-11-30
 Author: David Sandoval
 Maintainer: David Sandoval <dsandovalhdh@gmail.com>
 Description: Implementaion of the SPLASH v2.0 Algorithms for calibration-free calculations of water and energy fluxes.
 License: AFL (>= 3)
-Imports: Rcpp, raster, xts, parallel, topmodel
+Imports: 
+  doParallel,
+  fastmatch,
+  lubridate,
+  parallel, 
+  raster, 
+  Rcpp, 
+  topmodel,
+  xts
+Suggests:
+  spatial.tools,
+  splashTools
+Remotes:
+  github::dsval/splashTools@d103f33
 ByteCompile: TRUE
 LinkingTo: Rcpp
-RoxygenNote: 7.1.1
+RoxygenNote: 7.3.2
+Roxygen: list(markdown = TRUE)
