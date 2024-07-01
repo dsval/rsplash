@@ -20,10 +20,10 @@
 
 #' South American sample gridded data
 #'
-#' Used to construct a [splash.grid()] call. The CRU in the name probably stands for the
+#' Used to construct a [splash.grid()] call. The CRU in the name likely stands for the
 #' [Climatic Research
 #' Unit](https://research-portal.uea.ac.uk/en/organisations/climatic-research-unit) at
-#' the University of East Anglia. The soil data's
+#' the University of East Anglia.
 #'
 #' @source <https://crudata.uea.ac.uk/cru/data/hrg/>
 #'
